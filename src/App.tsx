@@ -202,7 +202,7 @@ function App() {
             />
           </Stage>
         </Suspense>
-        <OrbitControls />
+        <OrbitControls minDistance={2} maxDistance={5} />
       </Canvas>
 
       <Header />
