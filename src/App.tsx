@@ -1,8 +1,9 @@
-import { Suspense, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import type { Mesh } from 'three'
 import { Canvas } from '@react-three/fiber'
 import { Html, OrbitControls, Stage, useGLTF } from '@react-three/drei'
-import modelUrl from './assets/transformer.glb'
+// import modelUrl from './assets/transformer.glb'
+import modelUrl from './assets/transformer3.glb'
 import backgroundUrl from './assets/backgroundimage1.png'
 import Header from './components/Header'
 import ViewerGuide from './components/ViewerGuide'
@@ -176,8 +177,22 @@ function TransformerModel({
   )
 }
 
+const AUTO_ROTATE_RESUME_MS = 5000
+
 function App() {
   const [selectedFan, setSelectedFan] = useState<Fan | null>(null)
+  const [autoRotate, setAutoRotate] = useState(true)
+  const resumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  const pauseAutoRotate = () => {
+    clearTimeout(resumeTimer.current)
+    setAutoRotate(false)
+  }
+  const scheduleAutoRotate = () => {
+    clearTimeout(resumeTimer.current)
+    resumeTimer.current = setTimeout(() => setAutoRotate(true), AUTO_ROTATE_RESUME_MS)
+  }
+  useEffect(() => () => clearTimeout(resumeTimer.current), [])
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
@@ -192,9 +207,9 @@ function App() {
           filter: 'brightness(0.6)',
         }}
       />
-      <Canvas style={{ position: 'relative' }} camera={{ position: [0, 0, 5], fov: 50 }}>
+      <Canvas style={{ position: 'relative' }} camera={{ position: [0, 0, -5], fov: 30 }}>
         <Suspense fallback={null}>
-          <Stage environment="city" intensity={0.5} adjustCamera={1.5}>
+          <Stage environment="city" intensity={0.5} adjustCamera={0.75}>
             <TransformerModel
               selectedFan={selectedFan}
               onSelectFan={setSelectedFan}
@@ -202,7 +217,22 @@ function App() {
             />
           </Stage>
         </Suspense>
-        <OrbitControls minDistance={2} maxDistance={5} />
+        {/* makeDefault lets Stage's adjustCamera fit the whole model; no maxDistance cap
+            so the camera isn't clamped back inside large models. Polar angle is locked and
+            pan disabled so the user can only rotate left/right, not tilt up/down. */}
+        <OrbitControls
+          makeDefault
+          minDistance={1}
+          minPolarAngle={Math.PI / 2.1}
+          maxPolarAngle={Math.PI / 2.1}
+          enablePan={false}
+          // Spin clockwise (seen from above); pause while the user drags or zooms and
+          // resume after they've been idle for AUTO_ROTATE_RESUME_MS.
+          autoRotate={autoRotate}
+          autoRotateSpeed={-2}
+          onStart={pauseAutoRotate}
+          onEnd={scheduleAutoRotate}
+        />
       </Canvas>
 
       <Header />
