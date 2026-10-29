@@ -24,9 +24,8 @@ const TARGET_ICON = (
 )
 
 const GUIDE_ITEMS: GuideItem[] = [
-  { id: 'drag', label: 'Drag', description: 'Rotate', icon: MOUSE_ICON },
+  { id: 'drag', label: 'Drag', description: 'Rotate left / right', icon: MOUSE_ICON },
   { id: 'scroll', label: 'Scroll', description: 'Zoom', icon: MOUSE_ICON },
-  { id: 'right-drag', label: 'Right Drag', description: 'Pan', icon: MOUSE_ICON },
   { id: 'click', label: 'Click on Points', description: 'View Details', icon: TARGET_ICON },
 ]
 
