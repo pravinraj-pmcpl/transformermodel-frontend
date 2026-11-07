@@ -10,10 +10,12 @@ import Header from './components/Header'
 import InstrumentDetails from './components/InstrumentDetails'
 import ViewerGuide from './components/ViewerGuide'
 import {
-  DIGITAL_TEMPERATURE_INDICATOR,
-  DTCC_TMS,
+  RTCC_REMOTE_INDICATOR_GALLERY,
+  RTCC_TAP_GALLERY,
+  RTCC_TMS_GALLERY,
   FCC_CCC1_GALLERY,
   FCC_CCC2_GALLERY,
+  FCC_CCC3_GALLERY,
   type InstrumentInfo,
 } from './instruments'
 
@@ -37,8 +39,11 @@ interface Instrument {
 const FCC_INSTRUMENTS: Instrument[] = [
   { tag: 'WTI F71', position: [-0.521, 1.995, -0.22], info: FCC_CCC1_GALLERY },
   { tag: 'WTI F72', position: [-0.219, 1.995, -0.22], info: FCC_CCC1_GALLERY },
-  { tag: 'WTI F73', position: [0.315, 1.995, -0.22], info: FCC_CCC1_GALLERY },
-  { tag: 'OTI F74', position: [0.616, 1.995, -0.22], info: FCC_CCC1_GALLERY },
+  // Right bay's electronic temperature controllers: on the top edge of each, x at its centre.
+  // ETC_2243A_F73 spans x 0.175–0.457 (top y 1.907, front z -0.345); PMC_2243A_F74 spans
+  // x 0.476–0.726 (top y 1.902, front z -0.373).
+  { tag: 'WTI F73', position: [0.316, 1.917, -0.35], info: FCC_CCC1_GALLERY },
+  { tag: 'OTI F74', position: [0.601, 1.912, -0.378], info: FCC_CCC1_GALLERY },
   // Above each DIN-rail transmitter (U1–U6 nodes at y 1.434, x = node centre; housing top at
   // y 1.472, front face at z -0.38), just below its "U1"–"U6" label at y 1.499.
   { tag: 'U1 – Winding Temp Transmitter', position: [0.143, 1.488, -0.37], info: FCC_CCC2_GALLERY },
@@ -47,22 +52,29 @@ const FCC_INSTRUMENTS: Instrument[] = [
   { tag: 'U4 – Oil Temp Transmitter', position: [0.485, 1.488, -0.37], info: FCC_CCC2_GALLERY },
   { tag: 'U5 – Tap Position Transmitter', position: [0.599, 1.488, -0.37], info: FCC_CCC2_GALLERY },
   { tag: 'U6 – Current Converter Unit', position: [0.713, 1.488, -0.37], info: FCC_CCC2_GALLERY },
+  // On the cabinet's lower front section, between the two centre seams (front face at
+  // z ≈ 0.02 per Cabinet_Bolts, which span y 0.07–0.53).
+  { tag: 'FCC Panel', position: [0.04, 0.34, 0.03], info: FCC_CCC3_GALLERY },
 ]
 
 // In RTCC_Panel.glb, all facing +Z. Digital RTI meters: just above each P1_/P2_RTI_A1–A4_Body
 // (top at y 1.88, front face at z 0.016), x at each meter's centre. DTCC-TMS units: on the
 // top edge of each P1_/P2_DTCC_Chassis (top at y 1.219).
 const RTCC_INSTRUMENTS: Instrument[] = [
-  { tag: 'Panel 1 – RTI A1', position: [-0.539, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 1 – RTI A2', position: [-0.42, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 1 – RTI A3', position: [-0.3, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 1 – RTI A4', position: [-0.18, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 2 – RTI A1', position: [0.182, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 2 – RTI A2', position: [0.3, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 2 – RTI A3', position: [0.42, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 2 – RTI A4', position: [0.54, 1.905, 0.02], info: DIGITAL_TEMPERATURE_INDICATOR },
-  { tag: 'Panel 1 – DTCC-TMS', position: [-0.351, 1.222, 0.02], info: DTCC_TMS },
-  { tag: 'Panel 2 – DTCC-TMS', position: [0.365, 1.222, 0.02], info: DTCC_TMS },
+  { tag: 'Panel 1 – RTI A1', position: [-0.539, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  { tag: 'Panel 1 – RTI A2', position: [-0.42, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  { tag: 'Panel 1 – RTI A3', position: [-0.3, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  { tag: 'Panel 1 – RTI A4', position: [-0.18, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  { tag: 'Panel 2 – RTI A1', position: [0.182, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  { tag: 'Panel 2 – RTI A2', position: [0.3, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  { tag: 'Panel 2 – RTI A3', position: [0.42, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  { tag: 'Panel 2 – RTI A4', position: [0.54, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
+  // Tap position indicators: just above each P1_/P2_TPI_A5_Body (top at y 1.693, front face at
+  // z 0.016), the same gap as the RTI pointers above their meters.
+  { tag: 'Panel 1 – TPI A5', position: [-0.3, 1.718, 0.02], info: RTCC_TAP_GALLERY },
+  { tag: 'Panel 2 – TPI A5', position: [0.42, 1.718, 0.02], info: RTCC_TAP_GALLERY },
+  { tag: 'Panel 1 – DTCC-TMS', position: [-0.351, 1.222, 0.02], info: RTCC_TMS_GALLERY },
+  { tag: 'Panel 2 – DTCC-TMS', position: [0.365, 1.222, 0.02], info: RTCC_TMS_GALLERY },
 ]
 
 function Marker({
@@ -108,6 +120,15 @@ function Marker({
 function TransformerModel({ onOpenView }: { onOpenView: (view: View) => void }) {
   const { scene, animations } = useGLTF(modelUrl)
   const { actions } = useAnimations(animations, scene)
+
+  // transformer.glb includes the Blender studio floor (a 400 × 400 m plane). Stage fits the
+  // camera to the bounding box of everything in the scene, so that floor would make the
+  // transformer a speck in the distance. Drop it before Stage measures: this layout effect runs
+  // before Stage's own (parent effects run after their children's), and removing it from the
+  // cached scene is a no-op on later mounts.
+  useLayoutEffect(() => {
+    scene.getObjectByName('Studio_Floor_Studio_Floor')?.removeFromParent()
+  }, [scene])
 
   // The GLB's only clip spins all 12 cooler fan blade sets; loop it for as long as the
   // transformer is shown.
