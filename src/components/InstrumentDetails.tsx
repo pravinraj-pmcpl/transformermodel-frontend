@@ -27,6 +27,10 @@ const ANIMATIONS = `
 @keyframes instrument-details-caret {
   50% { opacity: 0; }
 }
+@keyframes instrument-details-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 `
 
 /** Reveals the specification table character by character, like it's being typed. */
@@ -71,8 +75,9 @@ function InstrumentDetails({
   tag: string
   onClose: () => void
 }) {
-  const offsets = rowOffsets(instrument.specifications)
-  const typed = useTypedCount(offsets[instrument.specifications.length])
+  const specifications = instrument.specifications ?? []
+  const offsets = rowOffsets(specifications)
+  const typed = useTypedCount(offsets[specifications.length])
   const [closing, setClosing] = useState(false)
 
   return (
@@ -140,24 +145,69 @@ function InstrumentDetails({
       </div>
 
       <div style={{ overflowY: 'auto', padding: '0 20px 20px' }}>
-        <img
-          src={instrument.imageUrl}
-          alt={instrument.title}
-          style={{
-            display: 'block',
-            width: '100%',
-            height: 200,
-            objectFit: 'contain',
-            borderRadius: 10,
-            background: '#fff',
-          }}
-        />
+        {instrument.imageUrl && (
+          <img
+            src={instrument.imageUrl}
+            alt={instrument.title}
+            style={{
+              display: 'block',
+              width: '100%',
+              height: 200,
+              objectFit: 'contain',
+              borderRadius: 10,
+              background: '#fff',
+            }}
+          />
+        )}
 
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#6f9bff', margin: '16px 0 8px' }}>
-          {instrument.specificationsHeading}
-        </div>
+        {instrument.gallery && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+            {instrument.gallery.map((item, i) => (
+              <figure
+                key={item.imageUrl}
+                style={{
+                  margin: 0,
+                  // Cards appear one after another once the panel has slid in.
+                  animation: `instrument-details-card-in 400ms ease-out ${SLIDE_MS / 2 + i * 60}ms both`,
+                }}
+              >
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  loading="lazy"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: 200,
+                    objectFit: 'contain',
+                    borderRadius: 10,
+                    background: '#fff',
+                  }}
+                />
+                <figcaption
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 500,
+                    textAlign: 'center',
+                    marginTop: 6,
+                    lineHeight: 1.35,
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {item.name}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        )}
+
+        {instrument.specificationsHeading && (
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#6f9bff', margin: '16px 0 8px' }}>
+            {instrument.specificationsHeading}
+          </div>
+        )}
         <div style={{ fontSize: 12 }}>
-          {instrument.specifications.map((spec, i) => {
+          {specifications.map((spec, i) => {
             const rowTyped = typed - offsets[i]
             const label = spec.label.slice(0, Math.max(rowTyped, 0))
             const value = spec.value.slice(0, Math.max(rowTyped - spec.label.length, 0))

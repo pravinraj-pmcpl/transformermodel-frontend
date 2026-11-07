@@ -1,10 +1,10 @@
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { LoopRepeat, type Mesh } from 'three'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html, OrbitControls, Stage, useAnimations, useGLTF } from '@react-three/drei'
-import modelUrl from './assets/transformer.glb'
-import rtccPanelUrl from './assets/RTCC_Panel.glb'
-import fccPanelUrl from './assets/FCC_Panel.glb'
+import modelUrl from './assets/transformer/3D/transformer.glb'
+import rtccPanelUrl from './assets/rtcc/3D/RTCC_Panel.glb'
+import fccPanelUrl from './assets/fcc/3D/FCC_Panel.glb'
 import backgroundUrl from './assets/backgroundimage1.png'
 import Header from './components/Header'
 import InstrumentDetails from './components/InstrumentDetails'
@@ -12,7 +12,8 @@ import ViewerGuide from './components/ViewerGuide'
 import {
   DIGITAL_TEMPERATURE_INDICATOR,
   DTCC_TMS,
-  MECHANICAL_TEMPERATURE_INDICATOR,
+  FCC_CCC1_GALLERY,
+  FCC_CCC2_GALLERY,
   type InstrumentInfo,
 } from './instruments'
 
@@ -34,10 +35,18 @@ interface Instrument {
 // On the top edge of each mechanical temperature indicator in fcc_panel.glb (the *_Body meshes span
 // y 1.62–1.99, glass face at z -0.23, facing +Z). x is each dial's centre.
 const FCC_INSTRUMENTS: Instrument[] = [
-  { tag: 'WTI F71', position: [-0.521, 1.995, -0.22], info: MECHANICAL_TEMPERATURE_INDICATOR },
-  { tag: 'WTI F72', position: [-0.219, 1.995, -0.22], info: MECHANICAL_TEMPERATURE_INDICATOR },
-  { tag: 'WTI F73', position: [0.315, 1.995, -0.22], info: MECHANICAL_TEMPERATURE_INDICATOR },
-  { tag: 'OTI F74', position: [0.616, 1.995, -0.22], info: MECHANICAL_TEMPERATURE_INDICATOR },
+  { tag: 'WTI F71', position: [-0.521, 1.995, -0.22], info: FCC_CCC1_GALLERY },
+  { tag: 'WTI F72', position: [-0.219, 1.995, -0.22], info: FCC_CCC1_GALLERY },
+  { tag: 'WTI F73', position: [0.315, 1.995, -0.22], info: FCC_CCC1_GALLERY },
+  { tag: 'OTI F74', position: [0.616, 1.995, -0.22], info: FCC_CCC1_GALLERY },
+  // Above each DIN-rail transmitter (U1–U6 nodes at y 1.434, x = node centre; housing top at
+  // y 1.472, front face at z -0.38), just below its "U1"–"U6" label at y 1.499.
+  { tag: 'U1 – Winding Temp Transmitter', position: [0.143, 1.488, -0.37], info: FCC_CCC2_GALLERY },
+  { tag: 'U2 – Winding Temp Transmitter', position: [0.257, 1.488, -0.37], info: FCC_CCC2_GALLERY },
+  { tag: 'U3 – Winding Temp Transmitter', position: [0.371, 1.488, -0.37], info: FCC_CCC2_GALLERY },
+  { tag: 'U4 – Oil Temp Transmitter', position: [0.485, 1.488, -0.37], info: FCC_CCC2_GALLERY },
+  { tag: 'U5 – Tap Position Transmitter', position: [0.599, 1.488, -0.37], info: FCC_CCC2_GALLERY },
+  { tag: 'U6 – Current Converter Unit', position: [0.713, 1.488, -0.37], info: FCC_CCC2_GALLERY },
 ]
 
 // In RTCC_Panel.glb, all facing +Z. Digital RTI meters: just above each P1_/P2_RTI_A1–A4_Body
@@ -205,6 +214,22 @@ function ResetCamera({ view }: { view: View }) {
   return null
 }
 
+// The FCC panel can be zoomed right up to its instruments. Stage sets the camera's near plane
+// to 1/100 of its fitting distance (and again on every resize), which would slice the
+// instruments off when that close, so hold a smaller near plane while this is mounted.
+const FCC_MIN_DISTANCE = 0.05
+const FCC_CAMERA_NEAR = 0.01
+
+function KeepCameraNear({ near }: { near: number }) {
+  useFrame(({ camera }) => {
+    if (camera.near !== near) {
+      camera.near = near
+      camera.updateProjectionMatrix()
+    }
+  })
+  return null
+}
+
 type View = 'transformer' | 'fcc' | 'rtcc'
 
 useGLTF.preload(fccPanelUrl)
@@ -250,6 +275,7 @@ function App() {
       />
       <Canvas style={{ position: 'relative' }} camera={{ position: [0, 0, -5], fov: 30 }}>
         <ResetCamera view={view} />
+        {view === 'fcc' && <KeepCameraNear near={FCC_CAMERA_NEAR} />}
         <Suspense fallback={null}>
           {/* Keyed by view so Stage remounts and re-fits the camera to the new model. */}
           <Stage
@@ -266,10 +292,10 @@ function App() {
         {/* makeDefault lets Stage's adjustCamera fit the whole model; no maxDistance cap
             so the camera isn't clamped back inside large models. Polar angle is locked so the
             user can only rotate left/right, not tilt up/down. Right-drag moves the view (like
-            Blender's hand tool) on every model. */}
+            Blender's hand tool) on every model. Only the FCC panel zooms in close. */}
         <OrbitControls
           makeDefault
-          minDistance={1}
+          minDistance={view === 'fcc' ? FCC_MIN_DISTANCE : 1}
           minPolarAngle={Math.PI / 2.1}
           maxPolarAngle={Math.PI / 2.1}
           // Spin clockwise (seen from above); pause while the user drags or zooms and
