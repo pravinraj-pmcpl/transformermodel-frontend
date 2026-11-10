@@ -16,6 +16,7 @@ import {
   FCC_CCC1_GALLERY,
   FCC_CCC2_GALLERY,
   FCC_CCC3_GALLERY,
+  BREATHER_GALLERY,
   type InstrumentInfo,
 } from './instruments'
 
@@ -117,7 +118,21 @@ function Marker({
   )
 }
 
-function TransformerModel({ onOpenView }: { onOpenView: (view: View) => void }) {
+// On top of the Smart_Breather_8KG cabinet (x 4.55–4.95, body top y 2.65), just in front of
+// its door, which faces -Z at z ≈ -2.345 (same side as the FCC box).
+const BREATHER_INSTRUMENT: Instrument = {
+  tag: 'Smart Breather 8 kg',
+  position: [4.75, 2.67, -2.37],
+  info: BREATHER_GALLERY,
+}
+
+function TransformerModel({
+  onOpenView,
+  onSelectInstrument,
+}: {
+  onOpenView: (view: View) => void
+  onSelectInstrument: (instrument: Instrument) => void
+}) {
   const { scene, animations } = useGLTF(modelUrl)
   const { actions } = useAnimations(animations, scene)
 
@@ -138,6 +153,7 @@ function TransformerModel({ onOpenView }: { onOpenView: (view: View) => void }) 
 
   const tankOccluderRef = useRef<Mesh>(null!)
   const controlRoomOccluderRef = useRef<Mesh>(null!)
+  const breatherOccluderRef = useRef<Mesh>(null!)
   return (
     <group>
       <primitive object={scene} />
@@ -150,6 +166,16 @@ function TransformerModel({ onOpenView }: { onOpenView: (view: View) => void }) 
       <mesh ref={controlRoomOccluderRef} position={[12.01, 1.69, -2.77]} visible={false}>
         <boxGeometry args={[2.6, 3.2, 4.1]} />
       </mesh>
+      {/* ...and to Smart_Breather_8KG's cabinet. */}
+      <mesh ref={breatherOccluderRef} position={[4.75, 2.394, -2.2]} visible={false}>
+        <boxGeometry args={[0.41, 0.51, 0.32]} />
+      </mesh>
+      <Marker
+        position={BREATHER_INSTRUMENT.position}
+        label={`Show details for ${BREATHER_INSTRUMENT.tag}`}
+        onClick={() => onSelectInstrument(BREATHER_INSTRUMENT)}
+        occluderRef={breatherOccluderRef}
+      />
       <Marker
         position={FCC_POINTER_POSITION}
         label="Open FCC Panel"
@@ -305,7 +331,9 @@ function App() {
             intensity={0.5}
             adjustCamera={view === 'transformer' ? 0.75 : 0.9}
           >
-            {view === 'transformer' && <TransformerModel onOpenView={showView} />}
+            {view === 'transformer' && (
+              <TransformerModel onOpenView={showView} onSelectInstrument={setSelectedInstrument} />
+            )}
             {view === 'fcc' && <FccPanelModel onSelectInstrument={setSelectedInstrument} />}
             {view === 'rtcc' && <RtccPanelModel onSelectInstrument={setSelectedInstrument} />}
           </Stage>
@@ -321,8 +349,9 @@ function App() {
           maxPolarAngle={Math.PI / 2.1}
           // Spin clockwise (seen from above); pause while the user drags or zooms and
           // resume after they've been idle for AUTO_ROTATE_RESUME_MS.
-          // The FCC and RTCC panels stay still, facing front.
-          autoRotate={autoRotate && view === 'transformer'}
+          // The FCC and RTCC panels stay still, facing front. The transformer also holds
+          // still while a details card is open, so its part stays beside the card.
+          autoRotate={autoRotate && view === 'transformer' && !selectedInstrument}
           autoRotateSpeed={-2}
           onStart={pauseAutoRotate}
           onEnd={scheduleAutoRotate}
@@ -354,7 +383,7 @@ function App() {
           ← Back to Transformer
         </button>
       )}
-      {view !== 'transformer' && selectedInstrument?.info && (
+      {selectedInstrument?.info && (
         <InstrumentDetails
           key={selectedInstrument.tag}
           instrument={selectedInstrument.info}
