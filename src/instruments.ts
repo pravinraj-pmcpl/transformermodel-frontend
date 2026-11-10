@@ -81,3 +81,11 @@ export const RTCC_TMS_GALLERY: InstrumentInfo = {
     import.meta.glob<string>('./assets/rtcc/TMS/*.webp', { eager: true, import: 'default' }),
   ),
 }
+
+// Transformer's smart silica-gel breather: gallery from the breather folder.
+export const BREATHER_GALLERY: InstrumentInfo = {
+  title: 'Smart Breather',
+  gallery: toGallery(
+    import.meta.glob<string>('./assets/breather/*.webp', { eager: true, import: 'default' }),
+  ),
+}
