@@ -17,6 +17,9 @@ import {
   FCC_CCC2_GALLERY,
   FCC_CCC3_GALLERY,
   BREATHER_GALLERY,
+  BUCHHOLZ_GALLERY,
+  MOG_GALLERY,
+  PRV_GALLERY,
   type InstrumentInfo,
 } from './instruments'
 
@@ -88,11 +91,17 @@ function Marker({
   position: [number, number, number]
   label: string
   onClick: () => void
-  occluderRef: React.RefObject<Mesh>
+  // Hides the pointer while this mesh is between it and the camera; omit to always show it.
+  occluderRef?: React.RefObject<Mesh>
   distanceFactor?: number
 }) {
   return (
-    <Html position={position} center distanceFactor={distanceFactor} occlude={[occluderRef]}>
+    <Html
+      position={position}
+      center
+      distanceFactor={distanceFactor}
+      occlude={occluderRef ? [occluderRef] : undefined}
+    >
       <button
         type="button"
         onClick={onClick}
@@ -126,6 +135,33 @@ const BREATHER_INSTRUMENT: Instrument = {
   info: BREATHER_GALLERY,
 }
 
+// Just above the Buchholz_Relay on the tank roof (x 3.41–3.72, top y 5.37, z -1.42 to -1.10),
+// at its centre. It stands above the roof (tank top y 5.04), so it is visible from every side
+// and its pointer needs no occluder.
+const BUCHHOLZ_INSTRUMENT: Instrument = {
+  tag: 'Buchholz Relay',
+  position: [3.56, 5.42, -1.26],
+  info: BUCHHOLZ_GALLERY,
+}
+
+// Just above the Magnetic_Oil_Gauge on the conservator's end cap (x 4.21–4.50, top y 6.135),
+// in front of its dial, which faces +Z with the glass at z ≈ 2.83.
+const MOG_INSTRUMENT: Instrument = {
+  tag: 'Magnetic Oil Gauge',
+  position: [4.35, 6.17, 2.86],
+  info: MOG_GALLERY,
+}
+
+// Just above the Pressure_Relief_Device on the tank roof, beside the Buchholz relay
+// (x 3.07–3.31, top of its red lever y 4.98, z -0.96 to -0.74), at its centre. Kept above the
+// tank occluder's top (y 5.04) so that box never hides it; like the Buchholz pointer it sits
+// on the roof and needs no occluder of its own.
+const PRV_INSTRUMENT: Instrument = {
+  tag: 'Pressure Relief Device',
+  position: [3.19, 5.07, -0.85],
+  info: PRV_GALLERY,
+}
+
 function TransformerModel({
   onOpenView,
   onSelectInstrument,
@@ -154,6 +190,7 @@ function TransformerModel({
   const tankOccluderRef = useRef<Mesh>(null!)
   const controlRoomOccluderRef = useRef<Mesh>(null!)
   const breatherOccluderRef = useRef<Mesh>(null!)
+  const mogOccluderRef = useRef<Mesh>(null!)
   return (
     <group>
       <primitive object={scene} />
@@ -175,6 +212,27 @@ function TransformerModel({
         label={`Show details for ${BREATHER_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(BREATHER_INSTRUMENT)}
         occluderRef={breatherOccluderRef}
+      />
+      <Marker
+        position={BUCHHOLZ_INSTRUMENT.position}
+        label={`Show details for ${BUCHHOLZ_INSTRUMENT.tag}`}
+        onClick={() => onSelectInstrument(BUCHHOLZ_INSTRUMENT)}
+      />
+      <Marker
+        position={PRV_INSTRUMENT.position}
+        label={`Show details for ${PRV_INSTRUMENT.tag}`}
+        onClick={() => onSelectInstrument(PRV_INSTRUMENT)}
+      />
+      {/* ...and to the end of the conservator drum behind the MOG (it stops at z 2.7, just
+          behind the gauge at z 2.74), so the MOG pointer hides from the far side. */}
+      <mesh ref={mogOccluderRef} position={[4.35, 6.0, 2.0]} visible={false}>
+        <boxGeometry args={[0.9, 0.9, 1.4]} />
+      </mesh>
+      <Marker
+        position={MOG_INSTRUMENT.position}
+        label={`Show details for ${MOG_INSTRUMENT.tag}`}
+        onClick={() => onSelectInstrument(MOG_INSTRUMENT)}
+        occluderRef={mogOccluderRef}
       />
       <Marker
         position={FCC_POINTER_POSITION}

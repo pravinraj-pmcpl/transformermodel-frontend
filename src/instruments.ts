@@ -89,3 +89,27 @@ export const BREATHER_GALLERY: InstrumentInfo = {
     import.meta.glob<string>('./assets/breather/*.webp', { eager: true, import: 'default' }),
   ),
 }
+
+// Transformer's Buchholz relay: gallery from the BUCHHOLZ folder.
+export const BUCHHOLZ_GALLERY: InstrumentInfo = {
+  title: 'Buchholz Relay',
+  gallery: toGallery(
+    import.meta.glob<string>('./assets/BUCHHOLZ/*.webp', { eager: true, import: 'default' }),
+  ),
+}
+
+// Transformer's magnetic oil gauge (on the conservator): gallery from the MOG folder.
+export const MOG_GALLERY: InstrumentInfo = {
+  title: 'Magnetic Oil Gauge',
+  gallery: toGallery(
+    import.meta.glob<string>('./assets/MOG/*.webp', { eager: true, import: 'default' }),
+  ),
+}
+
+// Transformer's pressure relief device (on the tank roof): gallery from the PRV folder.
+export const PRV_GALLERY: InstrumentInfo = {
+  title: 'Pressure Relief Valve',
+  gallery: toGallery(
+    import.meta.glob<string>('./assets/PRV/*.webp', { eager: true, import: 'default' }),
+  ),
+}
