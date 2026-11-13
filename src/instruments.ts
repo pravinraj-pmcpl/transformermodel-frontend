@@ -30,11 +30,26 @@ function toGallery(images: Record<string, string>): GalleryImage[] {
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
 }
 
-// FCC panel's dial thermometers: product gallery from the CCC1 folder.
-export const FCC_CCC1_GALLERY: InstrumentInfo = {
+// FCC panel's dial thermometers (WTI F71/F72): gallery from CCC1/Mechanical_Instrument.
+export const FCC_MECHANICAL_INSTRUMENT_GALLERY: InstrumentInfo = {
   title: 'Mechanical Temperature Indicator',
   gallery: toGallery(
-    import.meta.glob<string>('./assets/fcc/CCC1/*.webp', { eager: true, import: 'default' }),
+    import.meta.glob<string>('./assets/fcc/CCC1/Mechanical_Instrument/*.webp', {
+      eager: true,
+      import: 'default',
+    }),
+  ),
+}
+
+// FCC panel's electronic temperature controllers (WTI F73/OTI F74): gallery from
+// CCC1/Electronic_Instrument.
+export const FCC_ELECTRONIC_INSTRUMENT_GALLERY: InstrumentInfo = {
+  title: 'Electronic Temperature Indicator',
+  gallery: toGallery(
+    import.meta.glob<string>('./assets/fcc/CCC1/Electronic_Instrument/*.webp', {
+      eager: true,
+      import: 'default',
+    }),
   ),
 }
 

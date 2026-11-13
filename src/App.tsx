@@ -8,12 +8,14 @@ import fccPanelUrl from './assets/fcc/3D/FCC_Panel.glb'
 import backgroundUrl from './assets/backgroundimage1.png'
 import Header from './components/Header'
 import InstrumentDetails from './components/InstrumentDetails'
+import PointerIcon from './components/PointerIcon'
 import ViewerGuide from './components/ViewerGuide'
 import {
   RTCC_REMOTE_INDICATOR_GALLERY,
   RTCC_TAP_GALLERY,
   RTCC_TMS_GALLERY,
-  FCC_CCC1_GALLERY,
+  FCC_MECHANICAL_INSTRUMENT_GALLERY,
+  FCC_ELECTRONIC_INSTRUMENT_GALLERY,
   FCC_CCC2_GALLERY,
   FCC_CCC3_GALLERY,
   BREATHER_GALLERY,
@@ -41,13 +43,13 @@ interface Instrument {
 // On the top edge of each mechanical temperature indicator in fcc_panel.glb (the *_Body meshes span
 // y 1.62–1.99, glass face at z -0.23, facing +Z). x is each dial's centre.
 const FCC_INSTRUMENTS: Instrument[] = [
-  { tag: 'WTI F71', position: [-0.521, 1.995, -0.22], info: FCC_CCC1_GALLERY },
-  { tag: 'WTI F72', position: [-0.219, 1.995, -0.22], info: FCC_CCC1_GALLERY },
+  { tag: 'WTI F71', position: [-0.521, 1.995, -0.22], info: FCC_MECHANICAL_INSTRUMENT_GALLERY },
+  { tag: 'WTI F72', position: [-0.219, 1.995, -0.22], info: FCC_MECHANICAL_INSTRUMENT_GALLERY },
   // Right bay's electronic temperature controllers: on the top edge of each, x at its centre.
   // ETC_2243A_F73 spans x 0.175–0.457 (top y 1.907, front z -0.345); PMC_2243A_F74 spans
   // x 0.476–0.726 (top y 1.902, front z -0.373).
-  { tag: 'WTI F73', position: [0.316, 1.917, -0.35], info: FCC_CCC1_GALLERY },
-  { tag: 'OTI F74', position: [0.601, 1.912, -0.378], info: FCC_CCC1_GALLERY },
+  { tag: 'WTI F73', position: [0.316, 1.917, -0.35], info: FCC_ELECTRONIC_INSTRUMENT_GALLERY },
+  { tag: 'OTI F74', position: [0.601, 1.912, -0.378], info: FCC_ELECTRONIC_INSTRUMENT_GALLERY },
   // Above each DIN-rail transmitter (U1–U6 nodes at y 1.434, x = node centre; housing top at
   // y 1.472, front face at z -0.38), just below its "U1"–"U6" label at y 1.499.
   { tag: 'U1 – Winding Temp Transmitter', position: [0.143, 1.488, -0.37], info: FCC_CCC2_GALLERY },
@@ -85,23 +87,19 @@ function Marker({
   position,
   label,
   onClick,
-  occluderRef,
+  occluders,
   distanceFactor = 10,
 }: {
   position: [number, number, number]
   label: string
   onClick: () => void
-  // Hides the pointer while this mesh is between it and the camera; omit to always show it.
-  occluderRef?: React.RefObject<Mesh>
+  // Hides the pointer while any of these meshes is between it and the camera; omit to always
+  // show it.
+  occluders?: React.RefObject<Mesh>[]
   distanceFactor?: number
 }) {
   return (
-    <Html
-      position={position}
-      center
-      distanceFactor={distanceFactor}
-      occlude={occluderRef ? [occluderRef] : undefined}
-    >
+    <Html position={position} center distanceFactor={distanceFactor} occlude={occluders}>
       <button
         type="button"
         onClick={onClick}
@@ -117,11 +115,7 @@ function Marker({
           filter: 'drop-shadow(0 0 3px rgba(0, 0, 0, 0.5))',
         }}
       >
-        <svg width="20" height="20" viewBox="0 0 30 30">
-          <circle cx="15" cy="15" r="13.5" fill="#0b1e3d" stroke="#ffffff" strokeWidth="2" />
-          <circle cx="15" cy="15" r="6" fill="none" stroke="#ffffff" strokeWidth="1.5" />
-          <circle cx="15" cy="15" r="2.5" fill="#2f6bff" />
-        </svg>
+        <PointerIcon />
       </button>
     </Html>
   )
@@ -136,8 +130,8 @@ const BREATHER_INSTRUMENT: Instrument = {
 }
 
 // Just above the Buchholz_Relay on the tank roof (x 3.41–3.72, top y 5.37, z -1.42 to -1.10),
-// at its centre. It stands above the roof (tank top y 5.04), so it is visible from every side
-// and its pointer needs no occluder.
+// at its centre. It is on the roof's -Z (FCC) half, so the rear-half occluder hides it from the
+// +Z side.
 const BUCHHOLZ_INSTRUMENT: Instrument = {
   tag: 'Buchholz Relay',
   position: [3.56, 5.42, -1.26],
@@ -154,8 +148,8 @@ const MOG_INSTRUMENT: Instrument = {
 
 // Just above the Pressure_Relief_Device on the tank roof, beside the Buchholz relay
 // (x 3.07–3.31, top of its red lever y 4.98, z -0.96 to -0.74), at its centre. Kept above the
-// tank occluder's top (y 5.04) so that box never hides it; like the Buchholz pointer it sits
-// on the roof and needs no occluder of its own.
+// tank occluder's top (y 5.04) so that box never hides it; like the Buchholz pointer it is on
+// the roof's -Z half and is hidden from the +Z side by the rear-half occluder.
 const PRV_INSTRUMENT: Instrument = {
   tag: 'Pressure Relief Device',
   position: [3.19, 5.07, -0.85],
@@ -190,6 +184,7 @@ function TransformerModel({
   const tankOccluderRef = useRef<Mesh>(null!)
   const controlRoomOccluderRef = useRef<Mesh>(null!)
   const breatherOccluderRef = useRef<Mesh>(null!)
+  const rearHalfOccluderRef = useRef<Mesh>(null!)
   const mogOccluderRef = useRef<Mesh>(null!)
   return (
     <group>
@@ -207,44 +202,54 @@ function TransformerModel({
       <mesh ref={breatherOccluderRef} position={[4.75, 2.394, -2.2]} visible={false}>
         <boxGeometry args={[0.41, 0.51, 0.32]} />
       </mesh>
+      {/* ...and to the +Z half of the tank and coolers (x -4.02 to the coolers' outer edge at
+          7.3, z -0.6 to the tank fittings' face at 1.9), raised to y 6 so it also stands above
+          the roof: hides the -Z side's roof and breather pointers from the +Z side. It starts
+          just +Z of the PRV (z -0.74), so it never covers the pointers it hides. */}
+      <mesh ref={rearHalfOccluderRef} position={[1.64, 3.0, 0.65]} visible={false}>
+        <boxGeometry args={[11.32, 6.0, 2.5]} />
+      </mesh>
       <Marker
         position={BREATHER_INSTRUMENT.position}
         label={`Show details for ${BREATHER_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(BREATHER_INSTRUMENT)}
-        occluderRef={breatherOccluderRef}
+        occluders={[breatherOccluderRef, rearHalfOccluderRef]}
       />
       <Marker
         position={BUCHHOLZ_INSTRUMENT.position}
         label={`Show details for ${BUCHHOLZ_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(BUCHHOLZ_INSTRUMENT)}
+        occluders={[rearHalfOccluderRef]}
       />
       <Marker
         position={PRV_INSTRUMENT.position}
         label={`Show details for ${PRV_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(PRV_INSTRUMENT)}
+        occluders={[rearHalfOccluderRef]}
       />
-      {/* ...and to the end of the conservator drum behind the MOG (it stops at z 2.7, just
-          behind the gauge at z 2.74), so the MOG pointer hides from the far side. */}
-      <mesh ref={mogOccluderRef} position={[4.35, 6.0, 2.0]} visible={false}>
-        <boxGeometry args={[0.9, 0.9, 1.4]} />
+      {/* ...and to the conservator drum's cross-section (x 3.06–4.94, y 5.6–7.48) from its -Z
+          end to z 2.7, just behind the MOG (z 2.74), so the MOG pointer hides from the far
+          side, including the oblique end-on views a narrower box let through. */}
+      <mesh ref={mogOccluderRef} position={[4.0, 6.54, 0.275]} visible={false}>
+        <boxGeometry args={[1.88, 1.88, 4.85]} />
       </mesh>
       <Marker
         position={MOG_INSTRUMENT.position}
         label={`Show details for ${MOG_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(MOG_INSTRUMENT)}
-        occluderRef={mogOccluderRef}
+        occluders={[mogOccluderRef]}
       />
       <Marker
         position={FCC_POINTER_POSITION}
         label="Open FCC Panel"
         onClick={() => onOpenView('fcc')}
-        occluderRef={tankOccluderRef}
+        occluders={[tankOccluderRef]}
       />
       <Marker
         position={CONTROL_ROOM_POINTER_POSITION}
         label="Open RTCC Panel"
         onClick={() => onOpenView('rtcc')}
-        occluderRef={controlRoomOccluderRef}
+        occluders={[controlRoomOccluderRef]}
       />
     </group>
   )
@@ -274,7 +279,7 @@ function FccPanelModel({ onSelectInstrument }: { onSelectInstrument: (instrument
           position={instrument.position}
           label={`Show details for ${instrument.tag}`}
           onClick={() => onSelectInstrument(instrument)}
-          occluderRef={backWallRef}
+          occluders={[backWallRef]}
           // The panel is far smaller than the transformer, so the camera sits much closer.
           distanceFactor={2}
         />
@@ -300,7 +305,7 @@ function RtccPanelModel({ onSelectInstrument }: { onSelectInstrument: (instrumen
           position={instrument.position}
           label={`Show details for ${instrument.tag}`}
           onClick={() => onSelectInstrument(instrument)}
-          occluderRef={cabinetRef}
+          occluders={[cabinetRef]}
           // Same scale as the FCC panel, so the same factor keeps pointers the same size.
           distanceFactor={2}
         />
@@ -340,7 +345,7 @@ type View = 'transformer' | 'fcc' | 'rtcc'
 useGLTF.preload(fccPanelUrl)
 useGLTF.preload(rtccPanelUrl)
 
-const AUTO_ROTATE_RESUME_MS = 5000
+const AUTO_ROTATE_RESUME_MS = 10000
 
 function App() {
   const [view, setView] = useState<View>('transformer')
