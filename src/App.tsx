@@ -31,6 +31,7 @@ import {
 // -Z side). The face sits at z ≈ -2.0, recessed behind the open doors which reach z -2.86.
 const FCC_POINTER_POSITION: [number, number, number] = [1.25, 2.6, -2.05]
 
+//Test
 // Just above the "CONTROL ROOM" sign (ControlRoom_Sign_Text_mesh spans x 11.06–13.06,
 // y 2.79–2.95) on the control room's front wall, which faces -Z at z ≈ -4.82.
 const CONTROL_ROOM_POINTER_POSITION: [number, number, number] = [12.06, 3.2, -4.9]
