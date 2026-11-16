@@ -121,6 +121,31 @@ export const MOG_GALLERY: InstrumentInfo = {
   ),
 }
 
+// Transformer's pressure gauge (on the tank's -X end wall): gallery from the pressuregauge folder.
+export const PRESSURE_GAUGE_GALLERY: InstrumentInfo = {
+  title: 'Pressure Gauge',
+  gallery: toGallery(
+    import.meta.glob<string>('./assets/pressuregauge/*.webp', { eager: true, import: 'default' }),
+  ),
+}
+
+// Transformer's PT100 RTD temperature sensor (on the tank roof): the 12 products in the
+// BiMetal_PT-100 folder first, then the 5 spares in its Spares subfolder.
+export const PT100_GALLERY: InstrumentInfo = {
+  title: 'Bimetal Thermometer & PT100 Sensor',
+  gallery: [
+    ...toGallery(
+      import.meta.glob<string>('./assets/BiMetal_PT-100/*.webp', { eager: true, import: 'default' }),
+    ),
+    ...toGallery(
+      import.meta.glob<string>('./assets/BiMetal_PT-100/Spares/*.webp', {
+        eager: true,
+        import: 'default',
+      }),
+    ),
+  ],
+}
+
 // Transformer's pressure relief device (on the tank roof): gallery from the PRV folder.
 export const PRV_GALLERY: InstrumentInfo = {
   title: 'Pressure Relief Valve',

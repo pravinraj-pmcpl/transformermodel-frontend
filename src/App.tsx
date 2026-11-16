@@ -22,6 +22,8 @@ import {
   BUCHHOLZ_GALLERY,
   MOG_GALLERY,
   PRV_GALLERY,
+  PRESSURE_GAUGE_GALLERY,
+  PT100_GALLERY,
   type InstrumentInfo,
 } from './instruments'
 
@@ -29,6 +31,7 @@ import {
 // -Z side). The face sits at z ≈ -2.0, recessed behind the open doors which reach z -2.86.
 const FCC_POINTER_POSITION: [number, number, number] = [1.25, 2.6, -2.05]
 
+//Test
 // Just above the "CONTROL ROOM" sign (ControlRoom_Sign_Text_mesh spans x 11.06–13.06,
 // y 2.79–2.95) on the control room's front wall, which faces -Z at z ≈ -4.82.
 const CONTROL_ROOM_POINTER_POSITION: [number, number, number] = [12.06, 3.2, -4.9]
@@ -156,6 +159,24 @@ const PRV_INSTRUMENT: Instrument = {
   info: PRV_GALLERY,
 }
 
+// Above the Pressure_Gauge on the tank's -X end wall (z -0.835 to -0.617, top y 3.425), at its
+// centre, raised to y 3.55 so the pointer clears the small dial even when zoomed right in. Its dial faces -X with the glass at x ≈ -3.98, so the pointer sits at x -4.04,
+// just outside the tank occluder's -X face (x -4.015), which hides it from the far side.
+const PRESSURE_GAUGE_INSTRUMENT: Instrument = {
+  tag: 'Pressure Gauge',
+  position: [-4.04, 3.55, -0.726],
+  info: PRESSURE_GAUGE_GALLERY,
+}
+
+// Above the PT100_RTD_Temp_Sensor in the middle of the tank roof (x -2.51 to -2.38, top y 4.736,
+// z -0.09 to 0.03), at its centre. It sits midway between the tank's long sides, so like the
+// roof's other fittings it is visible from every side and needs no occluder.
+const PT100_INSTRUMENT: Instrument = {
+  tag: 'PT100 RTD Temperature Sensor',
+  position: [-2.443, 4.87, -0.03],
+  info: PT100_GALLERY,
+}
+
 function TransformerModel({
   onOpenView,
   onSelectInstrument,
@@ -185,6 +206,8 @@ function TransformerModel({
   const controlRoomOccluderRef = useRef<Mesh>(null!)
   const breatherOccluderRef = useRef<Mesh>(null!)
   const rearHalfOccluderRef = useRef<Mesh>(null!)
+  const marshallingBoxOccluderRef = useRef<Mesh>(null!)
+  const rearCoolerOccluderRef = useRef<Mesh>(null!)
   const mogOccluderRef = useRef<Mesh>(null!)
   return (
     <group>
@@ -209,11 +232,32 @@ function TransformerModel({
       <mesh ref={rearHalfOccluderRef} position={[1.64, 3.0, 0.65]} visible={false}>
         <boxGeometry args={[11.32, 6.0, 2.5]} />
       </mesh>
+      {/* ...and to the FCC marshalling box with its doors open (MarshallingBox_Tank_Paint:
+          x -0.23–2.73, y 0.65–3.45, z -2.863 to -1.662). The breather's own cabinet box can't
+          hide its pointer, which sits just above that box, so seen from the tank's -X end
+          (looking along its -Z face) nothing blocked it; the marshalling box is what really
+          hides the breather from there. */}
+      <mesh ref={marshallingBoxOccluderRef} position={[1.25, 2.05, -2.2625]} visible={false}>
+        <boxGeometry args={[2.96, 2.8, 1.2]} />
+      </mesh>
+      {/* ...and to the -Z cooler bank's radiators and fans (Cooler_Rear_*: x 5.3–7.29,
+          y 1.6–4.46, z -4.6 to -0.17). Seen from the +X end, the FCC box and breather sit
+          behind it (and behind the control room), but only the tank and the breather's own
+          cabinet blocked their pointers, so they showed through. */}
+      <mesh ref={rearCoolerOccluderRef} position={[6.295, 3.03, -2.385]} visible={false}>
+        <boxGeometry args={[1.99, 2.86, 4.43]} />
+      </mesh>
       <Marker
         position={BREATHER_INSTRUMENT.position}
         label={`Show details for ${BREATHER_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(BREATHER_INSTRUMENT)}
-        occluders={[breatherOccluderRef, rearHalfOccluderRef]}
+        occluders={[
+          breatherOccluderRef,
+          rearHalfOccluderRef,
+          marshallingBoxOccluderRef,
+          rearCoolerOccluderRef,
+          controlRoomOccluderRef,
+        ]}
       />
       <Marker
         position={BUCHHOLZ_INSTRUMENT.position}
@@ -240,10 +284,21 @@ function TransformerModel({
         occluders={[mogOccluderRef]}
       />
       <Marker
+        position={PRESSURE_GAUGE_INSTRUMENT.position}
+        label={`Show details for ${PRESSURE_GAUGE_INSTRUMENT.tag}`}
+        onClick={() => onSelectInstrument(PRESSURE_GAUGE_INSTRUMENT)}
+        occluders={[tankOccluderRef]}
+      />
+      <Marker
+        position={PT100_INSTRUMENT.position}
+        label={`Show details for ${PT100_INSTRUMENT.tag}`}
+        onClick={() => onSelectInstrument(PT100_INSTRUMENT)}
+      />
+      <Marker
         position={FCC_POINTER_POSITION}
         label="Open FCC Panel"
         onClick={() => onOpenView('fcc')}
-        occluders={[tankOccluderRef]}
+        occluders={[tankOccluderRef, rearCoolerOccluderRef, controlRoomOccluderRef]}
       />
       <Marker
         position={CONTROL_ROOM_POINTER_POSITION}
