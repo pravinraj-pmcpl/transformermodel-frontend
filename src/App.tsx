@@ -168,6 +168,16 @@ const PRESSURE_GAUGE_INSTRUMENT: Instrument = {
   info: PRESSURE_GAUGE_GALLERY,
 }
 
+// Above the Pressure_Gauge_PG100_Bottom near the foot of the tank's +Z face (x -2.519 to
+// -2.363, top y 1.271), at its centre. Its dial faces +Z with the glass at z ≈ 1.974, so the
+// pointer sits at z 2.0, just outside the tank occluder's +Z face (z 1.895), which hides it
+// from the far side. Opens the same details card as the end-wall gauge.
+const PRESSURE_GAUGE_BOTTOM_INSTRUMENT: Instrument = {
+  tag: 'Pressure Gauge (Bottom)',
+  position: [-2.441, 1.4, 2.0],
+  info: PRESSURE_GAUGE_GALLERY,
+}
+
 // Above the PT100_RTD_Temp_Sensor in the middle of the tank roof (x -2.51 to -2.38, top y 4.736,
 // z -0.09 to 0.03), at its centre. It sits midway between the tank's long sides, so like the
 // roof's other fittings it is visible from every side and needs no occluder.
@@ -287,6 +297,12 @@ function TransformerModel({
         position={PRESSURE_GAUGE_INSTRUMENT.position}
         label={`Show details for ${PRESSURE_GAUGE_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(PRESSURE_GAUGE_INSTRUMENT)}
+        occluders={[tankOccluderRef]}
+      />
+      <Marker
+        position={PRESSURE_GAUGE_BOTTOM_INSTRUMENT.position}
+        label={`Show details for ${PRESSURE_GAUGE_BOTTOM_INSTRUMENT.tag}`}
+        onClick={() => onSelectInstrument(PRESSURE_GAUGE_BOTTOM_INSTRUMENT)}
         occluders={[tankOccluderRef]}
       />
       <Marker
