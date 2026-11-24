@@ -69,10 +69,13 @@ function Caret() {
 function InstrumentDetails({
   instrument,
   tag,
+  onCloseStart,
   onClose,
 }: {
   instrument: InstrumentInfo
   tag: string
+  // Called as soon as the close button is clicked, before the slide-out animation.
+  onCloseStart?: () => void
   onClose: () => void
 }) {
   const specifications = instrument.specifications ?? []
@@ -91,7 +94,7 @@ function InstrumentDetails({
         top: 160,
         right: 32,
         bottom: 24,
-        zIndex: 5,
+        zIndex: 21,
         width: 420,
         maxWidth: 'calc(100vw - 64px)',
         display: 'flex',
@@ -128,7 +131,10 @@ function InstrumentDetails({
         </div>
         <button
           type="button"
-          onClick={() => setClosing(true)}
+          onClick={() => {
+            setClosing(true)
+            onCloseStart?.()
+          }}
           aria-label="Close"
           style={{
             background: 'transparent',
