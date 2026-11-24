@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createContext, Suspense, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { LoopRepeat, type Mesh } from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html, OrbitControls, Stage, useAnimations, useGLTF } from '@react-three/drei'
@@ -86,29 +86,80 @@ const RTCC_INSTRUMENTS: Instrument[] = [
   { tag: 'Panel 2 – DTCC-TMS', position: [0.365, 1.222, 0.02], info: RTCC_TMS_GALLERY },
 ]
 
+// True while a details card is open: every pointer ignores hover and clicks until it closes.
+// The pointers still show the hand cursor, so they keep looking clickable.
+const MarkersLockedContext = createContext(false)
+
+// Tag of the hover-opened pointer whose details card is showing; that pointer pulses with red
+// signal waves until the card's close button is clicked.
+const PulsingTagContext = createContext<string | null>(null)
+
+const SIGNAL_WAVE_MS = 1800
+const SIGNAL_WAVE_STYLE = `
+@keyframes marker-signal-wave {
+  from { transform: scale(1); opacity: 0.9; }
+  to { transform: scale(3.2); opacity: 0; }
+}`
+
+// Three red rings expanding out of the pointer one after another, looping.
+function SignalWaves() {
+  return (
+    <>
+      <style>{SIGNAL_WAVE_STYLE}</style>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: '50%',
+            border: '2px solid #e11d2a',
+            pointerEvents: 'none',
+            animation: `marker-signal-wave ${SIGNAL_WAVE_MS}ms ease-out ${(i * SIGNAL_WAVE_MS) / 3}ms infinite both`,
+          }}
+        />
+      ))}
+    </>
+  )
+}
+
 function Marker({
   position,
   label,
   onClick,
   occluders,
   distanceFactor = 10,
+  hoverTag,
 }: {
   position: [number, number, number]
   label: string
   onClick: () => void
+  // Set on the transformer's instrument pointers: they also fire onClick when the mouse moves
+  // onto them, and show signal waves while the card for this tag is open.
+  hoverTag?: string
   // Hides the pointer while any of these meshes is between it and the camera; omit to always
   // show it.
   occluders?: React.RefObject<Mesh>[]
   distanceFactor?: number
 }) {
+  const locked = useContext(MarkersLockedContext)
+  const pulsingTag = useContext(PulsingTagContext)
+  const pulsing = hoverTag !== undefined && pulsingTag === hoverTag
   return (
     <Html position={position} center distanceFactor={distanceFactor} occlude={occluders}>
       <button
         type="button"
-        onClick={onClick}
+        onClick={() => !locked && onClick()}
+        onPointerEnter={
+          hoverTag !== undefined
+            ? (e) => !locked && e.pointerType === 'mouse' && onClick()
+            : undefined
+        }
         aria-label={label}
         title={label}
         style={{
+          position: 'relative',
           width: 20,
           height: 20,
           border: 'none',
@@ -118,6 +169,7 @@ function Marker({
           filter: 'drop-shadow(0 0 3px rgba(0, 0, 0, 0.5))',
         }}
       >
+        {pulsing && <SignalWaves />}
         <PointerIcon />
       </button>
     </Html>
@@ -261,6 +313,7 @@ function TransformerModel({
         position={BREATHER_INSTRUMENT.position}
         label={`Show details for ${BREATHER_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(BREATHER_INSTRUMENT)}
+        hoverTag={BREATHER_INSTRUMENT.tag}
         occluders={[
           breatherOccluderRef,
           rearHalfOccluderRef,
@@ -273,12 +326,14 @@ function TransformerModel({
         position={BUCHHOLZ_INSTRUMENT.position}
         label={`Show details for ${BUCHHOLZ_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(BUCHHOLZ_INSTRUMENT)}
+        hoverTag={BUCHHOLZ_INSTRUMENT.tag}
         occluders={[rearHalfOccluderRef]}
       />
       <Marker
         position={PRV_INSTRUMENT.position}
         label={`Show details for ${PRV_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(PRV_INSTRUMENT)}
+        hoverTag={PRV_INSTRUMENT.tag}
         occluders={[rearHalfOccluderRef]}
       />
       {/* ...and to the conservator drum's cross-section (x 3.06–4.94, y 5.6–7.48) from its -Z
@@ -291,24 +346,28 @@ function TransformerModel({
         position={MOG_INSTRUMENT.position}
         label={`Show details for ${MOG_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(MOG_INSTRUMENT)}
+        hoverTag={MOG_INSTRUMENT.tag}
         occluders={[mogOccluderRef]}
       />
       <Marker
         position={PRESSURE_GAUGE_INSTRUMENT.position}
         label={`Show details for ${PRESSURE_GAUGE_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(PRESSURE_GAUGE_INSTRUMENT)}
+        hoverTag={PRESSURE_GAUGE_INSTRUMENT.tag}
         occluders={[tankOccluderRef]}
       />
       <Marker
         position={PRESSURE_GAUGE_BOTTOM_INSTRUMENT.position}
         label={`Show details for ${PRESSURE_GAUGE_BOTTOM_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(PRESSURE_GAUGE_BOTTOM_INSTRUMENT)}
+        hoverTag={PRESSURE_GAUGE_BOTTOM_INSTRUMENT.tag}
         occluders={[tankOccluderRef]}
       />
       <Marker
         position={PT100_INSTRUMENT.position}
         label={`Show details for ${PT100_INSTRUMENT.tag}`}
         onClick={() => onSelectInstrument(PT100_INSTRUMENT)}
+        hoverTag={PT100_INSTRUMENT.tag}
       />
       <Marker
         position={FCC_POINTER_POSITION}
@@ -422,9 +481,17 @@ function App() {
   const [view, setView] = useState<View>('transformer')
   const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>(null)
   const [autoRotate, setAutoRotate] = useState(true)
+  // Tag of the pointer showing signal waves: set when its card opens, cleared the moment the
+  // card's close button is clicked (not when its slide-out finishes).
+  const [pulsingTag, setPulsingTag] = useState<string | null>(null)
 
+  const selectInstrument = (instrument: Instrument) => {
+    setSelectedInstrument(instrument)
+    setPulsingTag(instrument.info ? instrument.tag : null)
+  }
   const showView = (next: View) => {
     setSelectedInstrument(null)
+    setPulsingTag(null)
     setView(next)
   }
   const resumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -454,9 +521,13 @@ function App() {
           filter: 'brightness(0.6)',
         }}
       />
-      <Canvas style={{ position: 'relative' }} camera={{ position: [0, 0, -5], fov: 30 }}>
+      {/* zIndex 0 makes the canvas its own stacking context, so the pointers drei's <Html>
+          renders (with very large z-indexes) stay below the overlays drawn after it. */}
+      <Canvas style={{ position: 'relative', zIndex: 0 }} camera={{ position: [0, 0, -5], fov: 30 }}>
         <ResetCamera view={view} />
         {view === 'fcc' && <KeepCameraNear near={FCC_CAMERA_NEAR} />}
+        <MarkersLockedContext.Provider value={!!selectedInstrument?.info}>
+        <PulsingTagContext.Provider value={pulsingTag}>
         <Suspense fallback={null}>
           {/* Keyed by view so Stage remounts and re-fits the camera to the new model. */}
           <Stage
@@ -466,18 +537,22 @@ function App() {
             adjustCamera={view === 'transformer' ? 0.75 : 0.9}
           >
             {view === 'transformer' && (
-              <TransformerModel onOpenView={showView} onSelectInstrument={setSelectedInstrument} />
+              <TransformerModel onOpenView={showView} onSelectInstrument={selectInstrument} />
             )}
-            {view === 'fcc' && <FccPanelModel onSelectInstrument={setSelectedInstrument} />}
-            {view === 'rtcc' && <RtccPanelModel onSelectInstrument={setSelectedInstrument} />}
+            {view === 'fcc' && <FccPanelModel onSelectInstrument={selectInstrument} />}
+            {view === 'rtcc' && <RtccPanelModel onSelectInstrument={selectInstrument} />}
           </Stage>
         </Suspense>
+        </PulsingTagContext.Provider>
+        </MarkersLockedContext.Provider>
         {/* makeDefault lets Stage's adjustCamera fit the whole model; no maxDistance cap
             so the camera isn't clamped back inside large models. Polar angle is locked so the
             user can only rotate left/right, not tilt up/down. Right-drag moves the view (like
             Blender's hand tool) on every model. Only the FCC panel zooms in close. */}
         <OrbitControls
           makeDefault
+          // Locked while a details card is open; the user can move the model again once it closes.
+          enabled={!selectedInstrument?.info}
           minDistance={view === 'fcc' ? FCC_MIN_DISTANCE : 1}
           minPolarAngle={Math.PI / 2.1}
           maxPolarAngle={Math.PI / 2.1}
@@ -498,6 +573,8 @@ function App() {
         <button
           type="button"
           onClick={() => showView('transformer')}
+          // Like the model, stays inert while a details card is open.
+          disabled={!!selectedInstrument?.info}
           style={{
             position: 'absolute',
             top: 100,
@@ -522,6 +599,7 @@ function App() {
           key={selectedInstrument.tag}
           instrument={selectedInstrument.info}
           tag={selectedInstrument.tag}
+          onCloseStart={() => setPulsingTag(null)}
           onClose={() => setSelectedInstrument(null)}
         />
       )}
