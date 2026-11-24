@@ -492,10 +492,16 @@ function App() {
   // Tag of the pointer showing signal waves: set when its card opens, cleared the moment the
   // card's close button is clicked (not when its slide-out finishes).
   const [pulsingTag, setPulsingTag] = useState<string | null>(null)
+  // Bumped on every open and used as the card's key, so each open mounts a fresh card. Keying
+  // by tag reused a card that was still sliding out when its own pointer was hovered again
+  // during that slide-out: the card finished closing and vanished while the lock stayed on,
+  // leaving every pointer dead with no close button to release them.
+  const [cardId, setCardId] = useState(0)
 
   const selectInstrument = (instrument: Instrument) => {
     setSelectedInstrument(instrument)
     setPulsingTag(instrument.info ? instrument.tag : null)
+    setCardId((id) => id + 1)
   }
   // The card counts as closed the moment its close button is clicked, even though it keeps
   // sliding out for a while after. Locking the model on selectedInstrument instead (only
@@ -610,11 +616,16 @@ function App() {
       )}
       {selectedInstrument?.info && (
         <InstrumentDetails
-          key={selectedInstrument.tag}
+          key={cardId}
           instrument={selectedInstrument.info}
           tag={selectedInstrument.tag}
           onCloseStart={() => setPulsingTag(null)}
-          onClose={() => setSelectedInstrument(null)}
+          // Only the current card can get here (a replaced one unmounts mid slide-out), so also
+          // clear the lock: whatever happens, a card that is gone never leaves the model locked.
+          onClose={() => {
+            setSelectedInstrument(null)
+            setPulsingTag(null)
+          }}
         />
       )}
     </div>
