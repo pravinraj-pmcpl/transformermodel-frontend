@@ -146,16 +146,20 @@ function Marker({
   const locked = useContext(MarkersLockedContext)
   const pulsingTag = useContext(PulsingTagContext)
   const pulsing = hoverTag !== undefined && pulsingTag === hoverTag
+  // Also on pointermove, so a mouse already resting on the pointer when the lock lifts opens it
+  // on its next movement (pointerenter alone won't fire again until it leaves and re-enters).
+  // Once the card opens the lock is on, so further moves do nothing.
+  const openOnHover =
+    hoverTag !== undefined
+      ? (e: React.PointerEvent) => !locked && e.pointerType === 'mouse' && onClick()
+      : undefined
   return (
     <Html position={position} center distanceFactor={distanceFactor} occlude={occluders}>
       <button
         type="button"
         onClick={() => !locked && onClick()}
-        onPointerEnter={
-          hoverTag !== undefined
-            ? (e) => !locked && e.pointerType === 'mouse' && onClick()
-            : undefined
-        }
+        onPointerEnter={openOnHover}
+        onPointerMove={openOnHover}
         aria-label={label}
         title={label}
         style={{
@@ -371,13 +375,13 @@ function TransformerModel({
       />
       <Marker
         position={FCC_POINTER_POSITION}
-        label="Open FCC Panel"
+        label="Click to Open FCC Panel"
         onClick={() => onOpenView('fcc')}
         occluders={[tankOccluderRef, rearCoolerOccluderRef, controlRoomOccluderRef]}
       />
       <Marker
         position={CONTROL_ROOM_POINTER_POSITION}
-        label="Open RTCC Panel"
+        label="Click to Open RTCC Panel"
         onClick={() => onOpenView('rtcc')}
         occluders={[controlRoomOccluderRef]}
       />
@@ -409,6 +413,8 @@ function FccPanelModel({ onSelectInstrument }: { onSelectInstrument: (instrument
           position={instrument.position}
           label={`Show details for ${instrument.tag}`}
           onClick={() => onSelectInstrument(instrument)}
+          // Like the transformer's instrument pointers: opens on hover and pulses while open.
+          hoverTag={instrument.tag}
           occluders={[backWallRef]}
           // The panel is far smaller than the transformer, so the camera sits much closer.
           distanceFactor={2}
@@ -435,6 +441,8 @@ function RtccPanelModel({ onSelectInstrument }: { onSelectInstrument: (instrumen
           position={instrument.position}
           label={`Show details for ${instrument.tag}`}
           onClick={() => onSelectInstrument(instrument)}
+          // Like the transformer's instrument pointers: opens on hover and pulses while open.
+          hoverTag={instrument.tag}
           occluders={[cabinetRef]}
           // Same scale as the FCC panel, so the same factor keeps pointers the same size.
           distanceFactor={2}
@@ -489,6 +497,12 @@ function App() {
     setSelectedInstrument(instrument)
     setPulsingTag(instrument.info ? instrument.tag : null)
   }
+  // The card counts as closed the moment its close button is clicked, even though it keeps
+  // sliding out for a while after. Locking the model on selectedInstrument instead (only
+  // cleared when that slide-out ends) swallowed any hover made during it, and the browser
+  // doesn't fire pointerenter again for a pointer the mouse is already on.
+  const cardOpen = pulsingTag !== null
+
   const showView = (next: View) => {
     setSelectedInstrument(null)
     setPulsingTag(null)
@@ -526,7 +540,7 @@ function App() {
       <Canvas style={{ position: 'relative', zIndex: 0 }} camera={{ position: [0, 0, -5], fov: 30 }}>
         <ResetCamera view={view} />
         {view === 'fcc' && <KeepCameraNear near={FCC_CAMERA_NEAR} />}
-        <MarkersLockedContext.Provider value={!!selectedInstrument?.info}>
+        <MarkersLockedContext.Provider value={cardOpen}>
         <PulsingTagContext.Provider value={pulsingTag}>
         <Suspense fallback={null}>
           {/* Keyed by view so Stage remounts and re-fits the camera to the new model. */}
@@ -552,7 +566,7 @@ function App() {
         <OrbitControls
           makeDefault
           // Locked while a details card is open; the user can move the model again once it closes.
-          enabled={!selectedInstrument?.info}
+          enabled={!cardOpen}
           minDistance={view === 'fcc' ? FCC_MIN_DISTANCE : 1}
           minPolarAngle={Math.PI / 2.1}
           maxPolarAngle={Math.PI / 2.1}
@@ -560,7 +574,7 @@ function App() {
           // resume after they've been idle for AUTO_ROTATE_RESUME_MS.
           // The FCC and RTCC panels stay still, facing front. The transformer also holds
           // still while a details card is open, so its part stays beside the card.
-          autoRotate={autoRotate && view === 'transformer' && !selectedInstrument}
+          autoRotate={autoRotate && view === 'transformer' && !cardOpen}
           autoRotateSpeed={-2}
           onStart={pauseAutoRotate}
           onEnd={scheduleAutoRotate}
@@ -574,7 +588,7 @@ function App() {
           type="button"
           onClick={() => showView('transformer')}
           // Like the model, stays inert while a details card is open.
-          disabled={!!selectedInstrument?.info}
+          disabled={cardOpen}
           style={{
             position: 'absolute',
             top: 100,
