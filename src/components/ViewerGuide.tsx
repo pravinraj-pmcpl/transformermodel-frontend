@@ -36,9 +36,9 @@ const HAND_ICON = (
 )
 
 const GUIDE_ITEMS: GuideItem[] = [
-  { id: 'drag', label: 'Drag', description: 'Rotate left / right', icon: MOUSE_ICON },
+  { id: 'drag', label: 'Drag', description: 'Rotate the view', icon: MOUSE_ICON },
   { id: 'scroll', label: 'Scroll', description: 'Zoom', icon: MOUSE_ICON },
-  { id: 'click', label: 'Click on Points', description: 'View Details', icon: TARGET_ICON },
+  { id: 'hover', label: 'Hover on Points', description: 'View Details · Esc to close', icon: TARGET_ICON },
   { id: 'right-drag', label: 'Right Drag', description: 'Move the view', icon: HAND_ICON },
   // Legend: the same pointer graphic the model shows on each instrument.
   { id: 'pointer', label: 'Instrument Pointer', description: 'Marks an instrument', icon: <PointerIcon size={16} /> },
