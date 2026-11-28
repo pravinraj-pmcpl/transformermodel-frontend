@@ -16,6 +16,9 @@ export interface InstrumentInfo {
   specificationsHeading?: string
   specifications?: Specification[]
   gallery?: GalleryImage[]
+  // Shown as "Download Datasheet" / "Enquire Now" buttons on the details card when set.
+  datasheetUrl?: string
+  enquiryUrl?: string
 }
 
 // Every image in a folder, named after its file: "TEMP_CONTROLLER_2243A_1oti3wti.webp"
@@ -152,4 +155,21 @@ export const PRV_GALLERY: InstrumentInfo = {
   gallery: toGallery(
     import.meta.glob<string>('./assets/PRV/*.webp', { eager: true, import: 'default' }),
   ),
+}
+
+// The ids that src/data/hotspots.json uses in each hotspot's "info" field.
+export const GALLERIES: Record<string, InstrumentInfo> = {
+  BREATHER: BREATHER_GALLERY,
+  BUCHHOLZ: BUCHHOLZ_GALLERY,
+  PRV: PRV_GALLERY,
+  MOG: MOG_GALLERY,
+  PRESSURE_GAUGE: PRESSURE_GAUGE_GALLERY,
+  PT100: PT100_GALLERY,
+  FCC_MECHANICAL: FCC_MECHANICAL_INSTRUMENT_GALLERY,
+  FCC_ELECTRONIC: FCC_ELECTRONIC_INSTRUMENT_GALLERY,
+  FCC_CCC2: FCC_CCC2_GALLERY,
+  FCC_CCC3: FCC_CCC3_GALLERY,
+  RTCC_REMOTE_INDICATOR: RTCC_REMOTE_INDICATOR_GALLERY,
+  RTCC_TAP: RTCC_TAP_GALLERY,
+  RTCC_TMS: RTCC_TMS_GALLERY,
 }
