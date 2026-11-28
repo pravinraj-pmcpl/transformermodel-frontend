@@ -1,459 +1,97 @@
-import { createContext, Suspense, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { LoopRepeat, type Mesh } from 'three'
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { LoopRepeat, PCFShadowMap, type Object3D, type Vector3 } from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Html, OrbitControls, Stage, useAnimations, useGLTF } from '@react-three/drei'
+import { OrbitControls, useAnimations, useGLTF } from '@react-three/drei'
 import modelUrl from './assets/transformer/3D/transformer.glb'
 import rtccPanelUrl from './assets/rtcc/3D/RTCC_Panel.glb'
 import fccPanelUrl from './assets/fcc/3D/FCC_Panel.glb'
 import backgroundUrl from './assets/backgroundimage1.png'
+import { CameraRig } from './camera/CameraRig'
 import Header from './components/Header'
 import InstrumentDetails from './components/InstrumentDetails'
-import PointerIcon from './components/PointerIcon'
 import ViewerGuide from './components/ViewerGuide'
-import {
-  RTCC_REMOTE_INDICATOR_GALLERY,
-  RTCC_TAP_GALLERY,
-  RTCC_TMS_GALLERY,
-  FCC_MECHANICAL_INSTRUMENT_GALLERY,
-  FCC_ELECTRONIC_INSTRUMENT_GALLERY,
-  FCC_CCC2_GALLERY,
-  FCC_CCC3_GALLERY,
-  BREATHER_GALLERY,
-  BUCHHOLZ_GALLERY,
-  MOG_GALLERY,
-  PRV_GALLERY,
-  PRESSURE_GAUGE_GALLERY,
-  PT100_GALLERY,
-  type InstrumentInfo,
-} from './instruments'
+import { hotspotNumbers, VIEWS, type HotspotData, type View } from './data/hotspots'
+import { HotspotLayer } from './hotspots/HotspotLayer'
+import { ActiveHotspotContext, findParts, MarkersLockedContext } from './hotspots/state'
+import { HOTSPOT_STYLES } from './hotspots/HotspotMarker'
+import { GALLERIES, type InstrumentInfo } from './instruments'
+import { prepareModel } from './scene/materials'
+import { PostFX } from './scene/PostFX'
+import { SceneStage } from './scene/SceneStage'
 
-// On the FCC panel's instrument face (the MarshallingBox_* meshes in transformer.glb, tank's
-// -Z side). The face sits at z ≈ -2.0, recessed behind the open doors which reach z -2.86.
-const FCC_POINTER_POSITION: [number, number, number] = [1.25, 2.6, -2.05]
-
-//Test
-// Just above the "CONTROL ROOM" sign (ControlRoom_Sign_Text_mesh spans x 11.06–13.06,
-// y 2.79–2.95) on the control room's front wall, which faces -Z at z ≈ -4.82.
-const CONTROL_ROOM_POINTER_POSITION: [number, number, number] = [12.06, 3.2, -4.9]
-
-interface Instrument {
-  tag: string
-  position: [number, number, number]
-  // What the details card shows; pointers without it don't open a card yet.
-  info?: InstrumentInfo
+interface ModelConfig {
+  url: string
+  // Animation clip looped while the view is shown.
+  clip?: string
+  // Margin around the model when the camera fits it.
+  fitMargin: number
+  // How close the user can zoom in.
+  minDistance: number
 }
 
-// On the top edge of each mechanical temperature indicator in fcc_panel.glb (the *_Body meshes span
-// y 1.62–1.99, glass face at z -0.23, facing +Z). x is each dial's centre.
-const FCC_INSTRUMENTS: Instrument[] = [
-  { tag: 'WTI F71', position: [-0.521, 1.995, -0.22], info: FCC_MECHANICAL_INSTRUMENT_GALLERY },
-  { tag: 'WTI F72', position: [-0.219, 1.995, -0.22], info: FCC_MECHANICAL_INSTRUMENT_GALLERY },
-  // Right bay's electronic temperature controllers: on the top edge of each, x at its centre.
-  // ETC_2243A_F73 spans x 0.175–0.457 (top y 1.907, front z -0.345); PMC_2243A_F74 spans
-  // x 0.476–0.726 (top y 1.902, front z -0.373).
-  { tag: 'WTI F73', position: [0.316, 1.917, -0.35], info: FCC_ELECTRONIC_INSTRUMENT_GALLERY },
-  { tag: 'OTI F74', position: [0.601, 1.912, -0.378], info: FCC_ELECTRONIC_INSTRUMENT_GALLERY },
-  // Above each DIN-rail transmitter (U1–U6 nodes at y 1.434, x = node centre; housing top at
-  // y 1.472, front face at z -0.38), just below its "U1"–"U6" label at y 1.499.
-  { tag: 'U1 – Winding Temp Transmitter', position: [0.143, 1.488, -0.37], info: FCC_CCC2_GALLERY },
-  { tag: 'U2 – Winding Temp Transmitter', position: [0.257, 1.488, -0.37], info: FCC_CCC2_GALLERY },
-  { tag: 'U3 – Winding Temp Transmitter', position: [0.371, 1.488, -0.37], info: FCC_CCC2_GALLERY },
-  { tag: 'U4 – Oil Temp Transmitter', position: [0.485, 1.488, -0.37], info: FCC_CCC2_GALLERY },
-  { tag: 'U5 – Tap Position Transmitter', position: [0.599, 1.488, -0.37], info: FCC_CCC2_GALLERY },
-  { tag: 'U6 – Current Converter Unit', position: [0.713, 1.488, -0.37], info: FCC_CCC2_GALLERY },
-  // On the cabinet's lower front section, between the two centre seams (front face at
-  // z ≈ 0.02 per Cabinet_Bolts, which span y 0.07–0.53).
-  { tag: 'FCC Panel', position: [0.04, 0.34, 0.03], info: FCC_CCC3_GALLERY },
-]
-
-// In RTCC_Panel.glb, all facing +Z. Digital RTI meters: just above each P1_/P2_RTI_A1–A4_Body
-// (top at y 1.88, front face at z 0.016), x at each meter's centre. DTCC-TMS units: on the
-// top edge of each P1_/P2_DTCC_Chassis (top at y 1.219).
-const RTCC_INSTRUMENTS: Instrument[] = [
-  { tag: 'Panel 1 – RTI A1', position: [-0.539, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  { tag: 'Panel 1 – RTI A2', position: [-0.42, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  { tag: 'Panel 1 – RTI A3', position: [-0.3, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  { tag: 'Panel 1 – RTI A4', position: [-0.18, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  { tag: 'Panel 2 – RTI A1', position: [0.182, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  { tag: 'Panel 2 – RTI A2', position: [0.3, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  { tag: 'Panel 2 – RTI A3', position: [0.42, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  { tag: 'Panel 2 – RTI A4', position: [0.54, 1.905, 0.02], info: RTCC_REMOTE_INDICATOR_GALLERY },
-  // Tap position indicators: just above each P1_/P2_TPI_A5_Body (top at y 1.693, front face at
-  // z 0.016), the same gap as the RTI pointers above their meters.
-  { tag: 'Panel 1 – TPI A5', position: [-0.3, 1.718, 0.02], info: RTCC_TAP_GALLERY },
-  { tag: 'Panel 2 – TPI A5', position: [0.42, 1.718, 0.02], info: RTCC_TAP_GALLERY },
-  { tag: 'Panel 1 – DTCC-TMS', position: [-0.351, 1.222, 0.02], info: RTCC_TMS_GALLERY },
-  { tag: 'Panel 2 – DTCC-TMS', position: [0.365, 1.222, 0.02], info: RTCC_TMS_GALLERY },
-]
-
-// True while a details card is open: every pointer ignores hover and clicks until it closes.
-// The pointers still show the hand cursor, so they keep looking clickable.
-const MarkersLockedContext = createContext(false)
-
-// Tag of the hover-opened pointer whose details card is showing; that pointer pulses with red
-// signal waves until the card's close button is clicked.
-const PulsingTagContext = createContext<string | null>(null)
-
-const SIGNAL_WAVE_MS = 1800
-const SIGNAL_WAVE_STYLE = `
-@keyframes marker-signal-wave {
-  from { transform: scale(1); opacity: 0.9; }
-  to { transform: scale(3.2); opacity: 0; }
-}`
-
-// Three red rings expanding out of the pointer one after another, looping.
-function SignalWaves() {
-  return (
-    <>
-      <style>{SIGNAL_WAVE_STYLE}</style>
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            borderRadius: '50%',
-            border: '2px solid #e11d2a',
-            pointerEvents: 'none',
-            animation: `marker-signal-wave ${SIGNAL_WAVE_MS}ms ease-out ${(i * SIGNAL_WAVE_MS) / 3}ms infinite both`,
-          }}
-        />
-      ))}
-    </>
-  )
+const MODELS: Record<View, ModelConfig> = {
+  // The GLB's only clip spins all 12 cooler fan blade sets.
+  transformer: { url: modelUrl, clip: 'Cooler_Fans_Spin', fitMargin: 0.75, minDistance: 1 },
+  // Its only clip moves the dial pointers of the temperature indicators. The panel can be
+  // zoomed right up to its instruments.
+  fcc: { url: fccPanelUrl, clip: 'Instrument_Pointers', fitMargin: 0.9, minDistance: 0.05 },
+  rtcc: { url: rtccPanelUrl, fitMargin: 0.9, minDistance: 0.2 },
 }
 
-function Marker({
-  position,
-  label,
-  onClick,
-  occluders,
-  distanceFactor = 10,
-  hoverTag,
-}: {
-  position: [number, number, number]
-  label: string
-  onClick: () => void
-  // Set on the transformer's instrument pointers: they also fire onClick when the mouse moves
-  // onto them, and show signal waves while the card for this tag is open.
-  hoverTag?: string
-  // Hides the pointer while any of these meshes is between it and the camera; omit to always
-  // show it.
-  occluders?: React.RefObject<Mesh>[]
-  distanceFactor?: number
-}) {
-  const locked = useContext(MarkersLockedContext)
-  const pulsingTag = useContext(PulsingTagContext)
-  const pulsing = hoverTag !== undefined && pulsingTag === hoverTag
-  // Also on pointermove, so a mouse already resting on the pointer when the lock lifts opens it
-  // on its next movement (pointerenter alone won't fire again until it leaves and re-enters).
-  // Once the card opens the lock is on, so further moves do nothing.
-  const openOnHover =
-    hoverTag !== undefined
-      ? (e: React.PointerEvent) => !locked && e.pointerType === 'mouse' && onClick()
-      : undefined
-  return (
-    <Html position={position} center distanceFactor={distanceFactor} occlude={occluders}>
-      <button
-        type="button"
-        onClick={() => !locked && onClick()}
-        onPointerEnter={openOnHover}
-        onPointerMove={openOnHover}
-        aria-label={label}
-        title={label}
-        style={{
-          position: 'relative',
-          width: 20,
-          height: 20,
-          border: 'none',
-          background: 'transparent',
-          cursor: 'pointer',
-          padding: 0,
-          filter: 'drop-shadow(0 0 3px rgba(0, 0, 0, 0.5))',
-        }}
-      >
-        {pulsing && <SignalWaves />}
-        <PointerIcon />
-      </button>
-    </Html>
-  )
+// The open details card: which hotspot, what it shows, and what the camera and outline need.
+interface Card {
+  key: number
+  hotspot: HotspotData
+  info: InstrumentInfo
+  number?: number
+  // The marker's position in world space: the camera flies to a close-up of it.
+  anchor: Vector3
+  // The instrument's meshes, outlined while the card is open.
+  parts: Object3D[]
 }
 
-// On top of the Smart_Breather_8KG cabinet (x 4.55–4.95, body top y 2.65), just in front of
-// its door, which faces -Z at z ≈ -2.345 (same side as the FCC box).
-const BREATHER_INSTRUMENT: Instrument = {
-  tag: 'Smart Breather 8 kg',
-  position: [4.75, 2.67, -2.37],
-  info: BREATHER_GALLERY,
-}
-
-// Just above the Buchholz_Relay on the tank roof (x 3.41–3.72, top y 5.37, z -1.42 to -1.10),
-// at its centre. It is on the roof's -Z (FCC) half, so the rear-half occluder hides it from the
-// +Z side.
-const BUCHHOLZ_INSTRUMENT: Instrument = {
-  tag: 'Buchholz Relay',
-  position: [3.56, 5.42, -1.26],
-  info: BUCHHOLZ_GALLERY,
-}
-
-// Just above the Magnetic_Oil_Gauge on the conservator's end cap (x 4.21–4.50, top y 6.135),
-// in front of its dial, which faces +Z with the glass at z ≈ 2.83.
-const MOG_INSTRUMENT: Instrument = {
-  tag: 'Magnetic Oil Gauge',
-  position: [4.35, 6.17, 2.86],
-  info: MOG_GALLERY,
-}
-
-// Just above the Pressure_Relief_Device on the tank roof, beside the Buchholz relay
-// (x 3.07–3.31, top of its red lever y 4.98, z -0.96 to -0.74), at its centre. Kept above the
-// tank occluder's top (y 5.04) so that box never hides it; like the Buchholz pointer it is on
-// the roof's -Z half and is hidden from the +Z side by the rear-half occluder.
-const PRV_INSTRUMENT: Instrument = {
-  tag: 'Pressure Relief Device',
-  position: [3.19, 5.07, -0.85],
-  info: PRV_GALLERY,
-}
-
-// Above the Pressure_Gauge on the tank's -X end wall (z -0.835 to -0.617, top y 3.425), at its
-// centre, raised to y 3.55 so the pointer clears the small dial even when zoomed right in. Its dial faces -X with the glass at x ≈ -3.98, so the pointer sits at x -4.04,
-// just outside the tank occluder's -X face (x -4.015), which hides it from the far side.
-const PRESSURE_GAUGE_INSTRUMENT: Instrument = {
-  tag: 'Pressure Gauge',
-  position: [-4.04, 3.55, -0.726],
-  info: PRESSURE_GAUGE_GALLERY,
-}
-
-// Above the Pressure_Gauge_PG100_Bottom near the foot of the tank's +Z face (x -2.519 to
-// -2.363, top y 1.271), at its centre. Its dial faces +Z with the glass at z ≈ 1.974, so the
-// pointer sits at z 2.0, just outside the tank occluder's +Z face (z 1.895), which hides it
-// from the far side. Opens the same details card as the end-wall gauge.
-const PRESSURE_GAUGE_BOTTOM_INSTRUMENT: Instrument = {
-  tag: 'Pressure Gauge (Bottom)',
-  position: [-2.441, 1.4, 2.0],
-  info: PRESSURE_GAUGE_GALLERY,
-}
-
-// Above the PT100_RTD_Temp_Sensor in the middle of the tank roof (x -2.51 to -2.38, top y 4.736,
-// z -0.09 to 0.03), at its centre. It sits midway between the tank's long sides, so like the
-// roof's other fittings it is visible from every side and needs no occluder.
-const PT100_INSTRUMENT: Instrument = {
-  tag: 'PT100 RTD Temperature Sensor',
-  position: [-2.443, 4.87, -0.03],
-  info: PT100_GALLERY,
-}
-
-function TransformerModel({
+function ModelView({
+  view,
+  onActivate,
   onOpenView,
-  onSelectInstrument,
 }: {
+  view: View
+  onActivate: (hotspot: HotspotData, anchor: Vector3, parts: Object3D[]) => void
   onOpenView: (view: View) => void
-  onSelectInstrument: (instrument: Instrument) => void
 }) {
-  const { scene, animations } = useGLTF(modelUrl)
+  const { url, clip } = MODELS[view]
+  const { scene, animations } = useGLTF(url)
   const { actions } = useAnimations(animations, scene)
 
-  // transformer.glb includes the Blender studio floor (a 400 × 400 m plane). Stage fits the
-  // camera to the bounding box of everything in the scene, so that floor would make the
-  // transformer a speck in the distance. Drop it before Stage measures: this layout effect runs
-  // before Stage's own (parent effects run after their children's), and removing it from the
-  // cached scene is a no-op on later mounts.
+  // transformer.glb includes the Blender studio floor (a 400 × 400 m plane), which would make
+  // the camera fit frame the transformer as a speck. Drop it before SceneStage measures: this
+  // layout effect runs before the stage's own (parent effects run after their children's), and
+  // removing it from the cached scene is a no-op on later mounts. Then set up materials and
+  // shadows (also once per cached scene).
   useLayoutEffect(() => {
     scene.getObjectByName('Studio_Floor_Studio_Floor')?.removeFromParent()
+    prepareModel(scene)
   }, [scene])
 
-  // The GLB's only clip spins all 12 cooler fan blade sets; loop it for as long as the
-  // transformer is shown.
   useEffect(() => {
-    actions['Cooler_Fans_Spin']?.reset().setLoop(LoopRepeat, Infinity).play()
-  }, [actions])
+    if (clip) actions[clip]?.reset().setLoop(LoopRepeat, Infinity).play()
+  }, [actions, clip])
 
-  const tankOccluderRef = useRef<Mesh>(null!)
-  const controlRoomOccluderRef = useRef<Mesh>(null!)
-  const breatherOccluderRef = useRef<Mesh>(null!)
-  const rearHalfOccluderRef = useRef<Mesh>(null!)
-  const marshallingBoxOccluderRef = useRef<Mesh>(null!)
-  const rearCoolerOccluderRef = useRef<Mesh>(null!)
-  const mogOccluderRef = useRef<Mesh>(null!)
   return (
     <group>
       <primitive object={scene} />
-      {/* Invisible stand-ins: cheap to raycast, used only to hide each pointer once it
-          rotates to the far side of its part. Sized to MainTank_Body's bounds... */}
-      <mesh ref={tankOccluderRef} position={[-0.03, 2.52, 0.06]} visible={false}>
-        <boxGeometry args={[7.97, 5.04, 3.67]} />
-      </mesh>
-      {/* ...and to ControlRoom_Wall_Cream's bounds. */}
-      <mesh ref={controlRoomOccluderRef} position={[12.01, 1.69, -2.77]} visible={false}>
-        <boxGeometry args={[2.6, 3.2, 4.1]} />
-      </mesh>
-      {/* ...and to Smart_Breather_8KG's cabinet. */}
-      <mesh ref={breatherOccluderRef} position={[4.75, 2.394, -2.2]} visible={false}>
-        <boxGeometry args={[0.41, 0.51, 0.32]} />
-      </mesh>
-      {/* ...and to the +Z half of the tank and coolers (x -4.02 to the coolers' outer edge at
-          7.3, z -0.6 to the tank fittings' face at 1.9), raised to y 6 so it also stands above
-          the roof: hides the -Z side's roof and breather pointers from the +Z side. It starts
-          just +Z of the PRV (z -0.74), so it never covers the pointers it hides. */}
-      <mesh ref={rearHalfOccluderRef} position={[1.64, 3.0, 0.65]} visible={false}>
-        <boxGeometry args={[11.32, 6.0, 2.5]} />
-      </mesh>
-      {/* ...and to the FCC marshalling box with its doors open (MarshallingBox_Tank_Paint:
-          x -0.23–2.73, y 0.65–3.45, z -2.863 to -1.662). The breather's own cabinet box can't
-          hide its pointer, which sits just above that box, so seen from the tank's -X end
-          (looking along its -Z face) nothing blocked it; the marshalling box is what really
-          hides the breather from there. */}
-      <mesh ref={marshallingBoxOccluderRef} position={[1.25, 2.05, -2.2625]} visible={false}>
-        <boxGeometry args={[2.96, 2.8, 1.2]} />
-      </mesh>
-      {/* ...and to the -Z cooler bank's radiators and fans (Cooler_Rear_*: x 5.3–7.29,
-          y 1.6–4.46, z -4.6 to -0.17). Seen from the +X end, the FCC box and breather sit
-          behind it (and behind the control room), but only the tank and the breather's own
-          cabinet blocked their pointers, so they showed through. */}
-      <mesh ref={rearCoolerOccluderRef} position={[6.295, 3.03, -2.385]} visible={false}>
-        <boxGeometry args={[1.99, 2.86, 4.43]} />
-      </mesh>
-      <Marker
-        position={BREATHER_INSTRUMENT.position}
-        label={`Show details for ${BREATHER_INSTRUMENT.tag}`}
-        onClick={() => onSelectInstrument(BREATHER_INSTRUMENT)}
-        hoverTag={BREATHER_INSTRUMENT.tag}
-        occluders={[
-          breatherOccluderRef,
-          rearHalfOccluderRef,
-          marshallingBoxOccluderRef,
-          rearCoolerOccluderRef,
-          controlRoomOccluderRef,
-        ]}
+      <HotspotLayer
+        view={view}
+        onActivate={(hotspot, anchor) =>
+          hotspot.opensView ? onOpenView(hotspot.opensView) : onActivate(hotspot, anchor, findParts(scene, hotspot.parts))
+        }
       />
-      <Marker
-        position={BUCHHOLZ_INSTRUMENT.position}
-        label={`Show details for ${BUCHHOLZ_INSTRUMENT.tag}`}
-        onClick={() => onSelectInstrument(BUCHHOLZ_INSTRUMENT)}
-        hoverTag={BUCHHOLZ_INSTRUMENT.tag}
-        occluders={[rearHalfOccluderRef]}
-      />
-      <Marker
-        position={PRV_INSTRUMENT.position}
-        label={`Show details for ${PRV_INSTRUMENT.tag}`}
-        onClick={() => onSelectInstrument(PRV_INSTRUMENT)}
-        hoverTag={PRV_INSTRUMENT.tag}
-        occluders={[rearHalfOccluderRef]}
-      />
-      {/* ...and to the conservator drum's cross-section (x 3.06–4.94, y 5.6–7.48) from its -Z
-          end to z 2.7, just behind the MOG (z 2.74), so the MOG pointer hides from the far
-          side, including the oblique end-on views a narrower box let through. */}
-      <mesh ref={mogOccluderRef} position={[4.0, 6.54, 0.275]} visible={false}>
-        <boxGeometry args={[1.88, 1.88, 4.85]} />
-      </mesh>
-      <Marker
-        position={MOG_INSTRUMENT.position}
-        label={`Show details for ${MOG_INSTRUMENT.tag}`}
-        onClick={() => onSelectInstrument(MOG_INSTRUMENT)}
-        hoverTag={MOG_INSTRUMENT.tag}
-        occluders={[mogOccluderRef]}
-      />
-      <Marker
-        position={PRESSURE_GAUGE_INSTRUMENT.position}
-        label={`Show details for ${PRESSURE_GAUGE_INSTRUMENT.tag}`}
-        onClick={() => onSelectInstrument(PRESSURE_GAUGE_INSTRUMENT)}
-        hoverTag={PRESSURE_GAUGE_INSTRUMENT.tag}
-        occluders={[tankOccluderRef]}
-      />
-      <Marker
-        position={PRESSURE_GAUGE_BOTTOM_INSTRUMENT.position}
-        label={`Show details for ${PRESSURE_GAUGE_BOTTOM_INSTRUMENT.tag}`}
-        onClick={() => onSelectInstrument(PRESSURE_GAUGE_BOTTOM_INSTRUMENT)}
-        hoverTag={PRESSURE_GAUGE_BOTTOM_INSTRUMENT.tag}
-        occluders={[tankOccluderRef]}
-      />
-      <Marker
-        position={PT100_INSTRUMENT.position}
-        label={`Show details for ${PT100_INSTRUMENT.tag}`}
-        onClick={() => onSelectInstrument(PT100_INSTRUMENT)}
-        hoverTag={PT100_INSTRUMENT.tag}
-      />
-      <Marker
-        position={FCC_POINTER_POSITION}
-        label="Click to Open FCC Panel"
-        onClick={() => onOpenView('fcc')}
-        occluders={[tankOccluderRef, rearCoolerOccluderRef, controlRoomOccluderRef]}
-      />
-      <Marker
-        position={CONTROL_ROOM_POINTER_POSITION}
-        label="Click to Open RTCC Panel"
-        onClick={() => onOpenView('rtcc')}
-        occluders={[controlRoomOccluderRef]}
-      />
-    </group>
-  )
-}
-
-function FccPanelModel({ onSelectInstrument }: { onSelectInstrument: (instrument: Instrument) => void }) {
-  const { scene, animations } = useGLTF(fccPanelUrl)
-  const { actions } = useAnimations(animations, scene)
-  const backWallRef = useRef<Mesh>(null!)
-
-  // The GLB's only clip moves the dial pointers of the temperature indicators; loop it for
-  // as long as the FCC panel is shown.
-  useEffect(() => {
-    actions['Instrument_Pointers']?.reset().setLoop(LoopRepeat, Infinity).play()
-  }, [actions])
-  return (
-    <group>
-      <primitive object={scene} />
-      {/* Invisible stand-in for the cabinet's back wall, behind the instruments: hides the
-          pointers when the panel is turned around. */}
-      <mesh ref={backWallRef} position={[0.01, 1.13, -0.51]} visible={false}>
-        <boxGeometry args={[2.0, 2.18, 0.18]} />
-      </mesh>
-      {FCC_INSTRUMENTS.map((instrument) => (
-        <Marker
-          key={instrument.tag}
-          position={instrument.position}
-          label={`Show details for ${instrument.tag}`}
-          onClick={() => onSelectInstrument(instrument)}
-          // Like the transformer's instrument pointers: opens on hover and pulses while open.
-          hoverTag={instrument.tag}
-          occluders={[backWallRef]}
-          // The panel is far smaller than the transformer, so the camera sits much closer.
-          distanceFactor={2}
-        />
-      ))}
-    </group>
-  )
-}
-
-function RtccPanelModel({ onSelectInstrument }: { onSelectInstrument: (instrument: Instrument) => void }) {
-  const { scene } = useGLTF(rtccPanelUrl)
-  const cabinetRef = useRef<Mesh>(null!)
-  return (
-    <group>
-      <primitive object={scene} />
-      {/* Invisible stand-in for both cabinets (Cabinet_1/2_Body), stopping just behind the
-          front face: hides the pointers when the panels are turned around. */}
-      <mesh ref={cabinetRef} position={[0, 1.11, -0.325]} visible={false}>
-        <boxGeometry args={[1.43, 2.2, 0.55]} />
-      </mesh>
-      {RTCC_INSTRUMENTS.map((instrument) => (
-        <Marker
-          key={instrument.tag}
-          position={instrument.position}
-          label={`Show details for ${instrument.tag}`}
-          onClick={() => onSelectInstrument(instrument)}
-          // Like the transformer's instrument pointers: opens on hover and pulses while open.
-          hoverTag={instrument.tag}
-          occluders={[cabinetRef]}
-          // Same scale as the FCC panel, so the same factor keeps pointers the same size.
-          distanceFactor={2}
-        />
-      ))}
     </group>
   )
 }
 
 // Start each view facing the model's front: the transformer's FCC side is -Z, while the
-// FCC and RTCC panels' doors face +Z. Stage then fits the distance along this direction.
+// FCC and RTCC panels' doors face +Z. The stage then fits the distance along this direction.
 function ResetCamera({ view }: { view: View }) {
   const camera = useThree((state) => state.camera)
   useLayoutEffect(() => {
@@ -462,10 +100,9 @@ function ResetCamera({ view }: { view: View }) {
   return null
 }
 
-// The FCC panel can be zoomed right up to its instruments. Stage sets the camera's near plane
-// to 1/100 of its fitting distance (and again on every resize), which would slice the
+// The FCC panel can be zoomed right up to its instruments. The stage sets the camera's near
+// plane to 1/100 of its fitting distance (and again on every resize), which would slice the
 // instruments off when that close, so hold a smaller near plane while this is mounted.
-const FCC_MIN_DISTANCE = 0.05
 const FCC_CAMERA_NEAR = 0.01
 
 function KeepCameraNear({ near }: { near: number }) {
@@ -478,44 +115,44 @@ function KeepCameraNear({ near }: { near: number }) {
   return null
 }
 
-type View = 'transformer' | 'fcc' | 'rtcc'
-
 useGLTF.preload(fccPanelUrl)
 useGLTF.preload(rtccPanelUrl)
 
 const AUTO_ROTATE_RESUME_MS = 10000
+// The user can't tilt the camera: it stays 5° above horizontal and only rotates left/right.
+// (CameraRig lifts this lock during its close-up flights, which look at instruments from a
+// little higher, and restores it once back.)
+const POLAR_ANGLE = (85 * Math.PI) / 180
 
 function App() {
   const [view, setView] = useState<View>('transformer')
-  const [selectedInstrument, setSelectedInstrument] = useState<Instrument | null>(null)
   const [autoRotate, setAutoRotate] = useState(true)
-  // Tag of the pointer showing signal waves: set when its card opens, cleared the moment the
-  // card's close button is clicked (not when its slide-out finishes).
-  const [pulsingTag, setPulsingTag] = useState<string | null>(null)
-  // Bumped on every open and used as the card's key, so each open mounts a fresh card. Keying
-  // by tag reused a card that was still sliding out when its own pointer was hovered again
-  // during that slide-out: the card finished closing and vanished while the lock stayed on,
-  // leaving every pointer dead with no close button to release them.
-  const [cardId, setCardId] = useState(0)
+  // What the details card shows. Kept while it slides out after closing.
+  const [card, setCard] = useState<Card | null>(null)
+  // The card counts as closed the moment ✕/Esc is pressed, even though it keeps sliding out
+  // for a while after: the lock, waves, outline and camera all follow this, so a hover made
+  // during the slide-out works (pointerenter won't fire again for a marker already under the
+  // mouse).
+  const [cardOpen, setCardOpen] = useState(false)
+  // Bumped on every open and used as the card's key, so each open mounts a fresh card (reusing
+  // one that was still sliding out made it vanish with the model left locked).
+  const cardKey = useRef(0)
+  const active = cardOpen ? card : null
 
-  const selectInstrument = (instrument: Instrument) => {
-    setSelectedInstrument(instrument)
-    setPulsingTag(instrument.info ? instrument.tag : null)
-    setCardId((id) => id + 1)
+  const openCard = (hotspot: HotspotData, anchor: Vector3, parts: Object3D[]) => {
+    const info = hotspot.info ? GALLERIES[hotspot.info] : undefined
+    if (!info) return
+    cardKey.current += 1
+    setCard({ key: cardKey.current, hotspot, info, number: hotspotNumbers(view).get(hotspot.id), anchor, parts })
+    setCardOpen(true)
   }
-  // The card counts as closed the moment its close button is clicked, even though it keeps
-  // sliding out for a while after. Locking the model on selectedInstrument instead (only
-  // cleared when that slide-out ends) swallowed any hover made during it, and the browser
-  // doesn't fire pointerenter again for a pointer the mouse is already on.
-  const cardOpen = pulsingTag !== null
-
   const showView = (next: View) => {
-    setSelectedInstrument(null)
-    setPulsingTag(null)
+    setCard(null)
+    setCardOpen(false)
     setView(next)
   }
-  const resumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  const resumeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const pauseAutoRotate = () => {
     clearTimeout(resumeTimer.current)
     setAutoRotate(false)
@@ -526,10 +163,13 @@ function App() {
   }
   useEffect(() => () => clearTimeout(resumeTimer.current), [])
 
+  const model = MODELS[view]
+
   // overflow: hidden clips overlays that animate past the viewport edge (e.g. the
   // instrument details sliding in from the right) so they can't add page scrollbars.
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
+      <style>{HOTSPOT_STYLES}</style>
       <div
         style={{
           position: 'absolute',
@@ -541,51 +181,76 @@ function App() {
           filter: 'brightness(0.6)',
         }}
       />
-      {/* zIndex 0 makes the canvas its own stacking context, so the pointers drei's <Html>
-          renders (with very large z-indexes) stay below the overlays drawn after it. */}
-      <Canvas style={{ position: 'relative', zIndex: 0 }} camera={{ position: [0, 0, -5], fov: 30 }}>
+      {/* zIndex 0 makes the canvas its own stacking context, so the markers drei's <Html>
+          renders (with very large z-indexes) stay below the overlays drawn after it.
+          Shadows use PCF with a blur radius (three r185 deprecated PCFSoftShadowMap; PCF now
+          softens by shadow.radius). Pixel ratio is capped at 2. Antialiasing comes from the
+          post-processing composer's MSAA, so the canvas skips its own. */}
+      <Canvas
+        style={{ position: 'relative', zIndex: 0 }}
+        camera={{ position: [0, 0, -5], fov: 30 }}
+        shadows={{ enabled: true, type: PCFShadowMap }}
+        dpr={[1, 2]}
+        gl={{ antialias: false }}
+      >
         <ResetCamera view={view} />
         {view === 'fcc' && <KeepCameraNear near={FCC_CAMERA_NEAR} />}
         <MarkersLockedContext.Provider value={cardOpen}>
-        <PulsingTagContext.Provider value={pulsingTag}>
-        <Suspense fallback={null}>
-          {/* Keyed by view so Stage remounts and re-fits the camera to the new model. */}
-          <Stage
-            key={view}
-            environment="city"
-            intensity={0.5}
-            adjustCamera={view === 'transformer' ? 0.75 : 0.9}
-          >
-            {view === 'transformer' && (
-              <TransformerModel onOpenView={showView} onSelectInstrument={selectInstrument} />
-            )}
-            {view === 'fcc' && <FccPanelModel onSelectInstrument={selectInstrument} />}
-            {view === 'rtcc' && <RtccPanelModel onSelectInstrument={selectInstrument} />}
-          </Stage>
-        </Suspense>
-        </PulsingTagContext.Provider>
+          <ActiveHotspotContext.Provider value={active?.hotspot.id ?? null}>
+            <Suspense fallback={null}>
+              {/* Keyed by view so the stage remounts and re-fits the camera to the new model. */}
+              <SceneStage
+                key={view}
+                adjustCamera={model.fitMargin}
+                sunSide={view === 'transformer' ? 'transformer' : 'panel'}
+              >
+                <ModelView view={view} onActivate={openCard} onOpenView={showView} />
+              </SceneStage>
+            </Suspense>
+          </ActiveHotspotContext.Provider>
         </MarkersLockedContext.Provider>
-        {/* makeDefault lets Stage's adjustCamera fit the whole model; no maxDistance cap
-            so the camera isn't clamped back inside large models. Polar angle is locked so the
-            user can only rotate left/right, not tilt up/down. Right-drag moves the view (like
-            Blender's hand tool) on every model. Only the FCC panel zooms in close. */}
+        <PostFX highlight={active?.parts ?? []} />
+        {/* makeDefault lets the stage fit the camera to the whole model; no maxDistance cap
+            so the camera isn't clamped back inside large models. Right-drag moves the view
+            (like Blender's hand tool). Damping (drei's default 0.05) smooths every move. */}
         <OrbitControls
           makeDefault
           // Locked while a details card is open; the user can move the model again once it closes.
           enabled={!cardOpen}
-          minDistance={view === 'fcc' ? FCC_MIN_DISTANCE : 1}
-          minPolarAngle={Math.PI / 2.1}
-          maxPolarAngle={Math.PI / 2.1}
+          minDistance={model.minDistance}
+          minPolarAngle={POLAR_ANGLE}
+          maxPolarAngle={POLAR_ANGLE}
           // Spin clockwise (seen from above); pause while the user drags or zooms and
           // resume after they've been idle for AUTO_ROTATE_RESUME_MS.
           // The FCC and RTCC panels stay still, facing front. The transformer also holds
-          // still while a details card is open, so its part stays beside the card.
+          // still while a details card is open.
           autoRotate={autoRotate && view === 'transformer' && !cardOpen}
           autoRotateSpeed={-2}
           onStart={pauseAutoRotate}
           onEnd={scheduleAutoRotate}
         />
+        {/* Keyed by view so a flight in progress never carries over to another model. */}
+        <CameraRig
+          key={view}
+          focus={active?.anchor ?? null}
+          distance={active?.hotspot.focusDistance ?? VIEWS[view].focusDistance}
+        />
       </Canvas>
+      {/* Dims the screen edges only while a card is open, so the close-up stands out; none
+          otherwise (an always-on vignette read as black patches on the photo's ground). Done
+          in CSS because the canvas is transparent over the photo. */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1,
+          pointerEvents: 'none',
+          background: 'radial-gradient(ellipse at 40% 50%, transparent 45%, rgba(5, 10, 20, 0.6) 100%)',
+          opacity: cardOpen ? 1 : 0,
+          transition: 'opacity 1.2s ease',
+        }}
+      />
 
       <Header />
       <ViewerGuide />
@@ -614,17 +279,18 @@ function App() {
           ← Back to Transformer
         </button>
       )}
-      {selectedInstrument?.info && (
+      {card && (
         <InstrumentDetails
-          key={cardId}
-          instrument={selectedInstrument.info}
-          tag={selectedInstrument.tag}
-          onCloseStart={() => setPulsingTag(null)}
+          key={card.key}
+          instrument={card.info}
+          tag={card.hotspot.tag}
+          number={card.number}
+          onCloseStart={() => setCardOpen(false)}
           // Only the current card can get here (a replaced one unmounts mid slide-out), so also
           // clear the lock: whatever happens, a card that is gone never leaves the model locked.
           onClose={() => {
-            setSelectedInstrument(null)
-            setPulsingTag(null)
+            setCard(null)
+            setCardOpen(false)
           }}
         />
       )}

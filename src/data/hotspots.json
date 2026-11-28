@@ -1,0 +1,162 @@
+{
+  "transformer": {
+    "focusDistance": 4.5,
+    "occluders": {
+      "tank": { "position": [-0.03, 2.52, 0.06], "size": [7.97, 5.04, 3.67] },
+      "controlRoom": { "position": [12.01, 1.69, -2.77], "size": [2.6, 3.2, 4.1] },
+      "breather": { "position": [4.75, 2.394, -2.2], "size": [0.41, 0.51, 0.32] },
+      "rearHalf": { "position": [1.64, 3.0, 0.65], "size": [11.32, 6.0, 2.5] },
+      "marshallingBox": { "position": [1.25, 2.05, -2.2625], "size": [2.96, 2.8, 1.2] },
+      "rearCooler": { "position": [6.295, 3.03, -2.385], "size": [1.99, 2.86, 4.43] },
+      "mog": { "position": [4.0, 6.54, 0.275], "size": [1.88, 1.88, 4.85] }
+    },
+    "hotspots": [
+      {
+        "id": "breather",
+        "tag": "Smart Breather 8 kg",
+        "anchor": [4.75, 2.67, -2.37],
+        "info": "BREATHER",
+        "parts": "^Smart_Breather_8KG",
+        "occluders": ["breather", "rearHalf", "marshallingBox", "rearCooler", "controlRoom"]
+      },
+      {
+        "id": "buchholz",
+        "tag": "Buchholz Relay",
+        "anchor": [3.56, 5.42, -1.26],
+        "info": "BUCHHOLZ",
+        "parts": "^Buchholz_Relay",
+        "occluders": ["rearHalf"]
+      },
+      {
+        "id": "prv",
+        "tag": "Pressure Relief Device",
+        "anchor": [3.19, 5.07, -0.85],
+        "info": "PRV",
+        "parts": "^Pressure_Relief_Device",
+        "occluders": ["rearHalf"]
+      },
+      {
+        "id": "mog",
+        "tag": "Magnetic Oil Gauge",
+        "anchor": [4.35, 6.17, 2.86],
+        "info": "MOG",
+        "parts": "^Magnetic_Oil_Gauge",
+        "occluders": ["mog"]
+      },
+      {
+        "id": "pressureGauge",
+        "tag": "Pressure Gauge",
+        "anchor": [-4.04, 3.55, -0.726],
+        "info": "PRESSURE_GAUGE",
+        "parts": "^Pressure_Gauge_PG100(?!_Bottom)",
+        "occluders": ["tank"]
+      },
+      {
+        "id": "pressureGaugeBottom",
+        "tag": "Pressure Gauge (Bottom)",
+        "anchor": [-2.441, 1.4, 2.0],
+        "info": "PRESSURE_GAUGE",
+        "parts": "^Pressure_Gauge_PG100_Bottom",
+        "occluders": ["tank"]
+      },
+      {
+        "id": "pt100",
+        "tag": "PT100 RTD Temperature Sensor",
+        "anchor": [-2.443, 4.87, -0.03],
+        "info": "PT100",
+        "parts": "^PT100_RTD_Temp_Sensor"
+      },
+      {
+        "id": "fccPanel",
+        "tag": "FCC Panel",
+        "label": "Click to Open FCC Panel",
+        "anchor": [1.25, 2.6, -2.05],
+        "opensView": "fcc",
+        "occluders": ["tank", "rearCooler", "controlRoom"]
+      },
+      {
+        "id": "rtccPanel",
+        "tag": "RTCC Panel",
+        "label": "Click to Open RTCC Panel",
+        "anchor": [12.06, 3.2, -4.9],
+        "opensView": "rtcc",
+        "occluders": ["controlRoom"]
+      }
+    ]
+  },
+  "fcc": {
+    "focusDistance": 0.7,
+    "occluders": {
+      "backWall": { "position": [0.01, 1.13, -0.51], "size": [2.0, 2.18, 0.18] }
+    },
+    "hotspots": [
+      {
+        "id": "wtiF71",
+        "tag": "WTI F71",
+        "anchor": [-0.521, 1.995, -0.22],
+        "info": "FCC_MECHANICAL",
+        "parts": "^WTI_F71_",
+        "occluders": ["backWall"]
+      },
+      {
+        "id": "wtiF72",
+        "tag": "WTI F72",
+        "anchor": [-0.219, 1.995, -0.22],
+        "info": "FCC_MECHANICAL",
+        "parts": "^WTI_F72_",
+        "occluders": ["backWall"]
+      },
+      {
+        "id": "wtiF73",
+        "tag": "WTI F73",
+        "anchor": [0.316, 1.917, -0.35],
+        "info": "FCC_ELECTRONIC",
+        "parts": "^(ETC_2243A_F73_|WTI_F73_)",
+        "occluders": ["backWall"]
+      },
+      {
+        "id": "otiF74",
+        "tag": "OTI F74",
+        "anchor": [0.601, 1.912, -0.378],
+        "info": "FCC_ELECTRONIC",
+        "parts": "^(ETC_2243A_F74_|OTI_F74_)",
+        "occluders": ["backWall"]
+      },
+      { "id": "u1", "tag": "U1 – Winding Temp Transmitter", "anchor": [0.143, 1.488, -0.37], "info": "FCC_CCC2", "parts": "^U1_", "occluders": ["backWall"] },
+      { "id": "u2", "tag": "U2 – Winding Temp Transmitter", "anchor": [0.257, 1.488, -0.37], "info": "FCC_CCC2", "parts": "^U2_", "occluders": ["backWall"] },
+      { "id": "u3", "tag": "U3 – Winding Temp Transmitter", "anchor": [0.371, 1.488, -0.37], "info": "FCC_CCC2", "parts": "^U3_", "occluders": ["backWall"] },
+      { "id": "u4", "tag": "U4 – Oil Temp Transmitter", "anchor": [0.485, 1.488, -0.37], "info": "FCC_CCC2", "parts": "^U4_", "occluders": ["backWall"] },
+      { "id": "u5", "tag": "U5 – Tap Position Transmitter", "anchor": [0.599, 1.488, -0.37], "info": "FCC_CCC2", "parts": "^U5_", "occluders": ["backWall"] },
+      { "id": "u6", "tag": "U6 – Current Converter Unit", "anchor": [0.713, 1.488, -0.37], "info": "FCC_CCC2", "parts": "^U6_", "occluders": ["backWall"] },
+      {
+        "id": "fccCabinet",
+        "tag": "FCC Panel",
+        "anchor": [0.04, 0.34, 0.03],
+        "info": "FCC_CCC3",
+        "parts": "^Cabinet_",
+        "occluders": ["backWall"],
+        "focusDistance": 3
+      }
+    ]
+  },
+  "rtcc": {
+    "focusDistance": 0.8,
+    "occluders": {
+      "cabinet": { "position": [0, 1.11, -0.325], "size": [1.43, 2.2, 0.55] }
+    },
+    "hotspots": [
+      { "id": "p1RtiA1", "tag": "Panel 1 – RTI A1", "anchor": [-0.539, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P1_RTI_A1_", "occluders": ["cabinet"] },
+      { "id": "p1RtiA2", "tag": "Panel 1 – RTI A2", "anchor": [-0.42, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P1_RTI_A2_", "occluders": ["cabinet"] },
+      { "id": "p1RtiA3", "tag": "Panel 1 – RTI A3", "anchor": [-0.3, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P1_RTI_A3_", "occluders": ["cabinet"] },
+      { "id": "p1RtiA4", "tag": "Panel 1 – RTI A4", "anchor": [-0.18, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P1_RTI_A4_", "occluders": ["cabinet"] },
+      { "id": "p2RtiA1", "tag": "Panel 2 – RTI A1", "anchor": [0.182, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P2_RTI_A1_", "occluders": ["cabinet"] },
+      { "id": "p2RtiA2", "tag": "Panel 2 – RTI A2", "anchor": [0.3, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P2_RTI_A2_", "occluders": ["cabinet"] },
+      { "id": "p2RtiA3", "tag": "Panel 2 – RTI A3", "anchor": [0.42, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P2_RTI_A3_", "occluders": ["cabinet"] },
+      { "id": "p2RtiA4", "tag": "Panel 2 – RTI A4", "anchor": [0.54, 1.905, 0.02], "info": "RTCC_REMOTE_INDICATOR", "parts": "^P2_RTI_A4_", "occluders": ["cabinet"] },
+      { "id": "p1Tpi", "tag": "Panel 1 – TPI A5", "anchor": [-0.3, 1.718, 0.02], "info": "RTCC_TAP", "parts": "^P1_TPI_", "occluders": ["cabinet"] },
+      { "id": "p2Tpi", "tag": "Panel 2 – TPI A5", "anchor": [0.42, 1.718, 0.02], "info": "RTCC_TAP", "parts": "^P2_TPI_", "occluders": ["cabinet"] },
+      { "id": "p1Dtcc", "tag": "Panel 1 – DTCC-TMS", "anchor": [-0.351, 1.222, 0.02], "info": "RTCC_TMS", "parts": "^P1_DTCC_", "occluders": ["cabinet"], "focusDistance": 1.1 },
+      { "id": "p2Dtcc", "tag": "Panel 2 – DTCC-TMS", "anchor": [0.365, 1.222, 0.02], "info": "RTCC_TMS", "parts": "^P2_DTCC_", "occluders": ["cabinet"], "focusDistance": 1.1 }
+    ]
+  }
+}
